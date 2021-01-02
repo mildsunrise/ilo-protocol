@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!-- javaIRC English version -->
+<!DOCTYPE javaIRC [
+<!ELEMENT javaIRC ((menuItems, dialogItems, statusItems, tooltipItems))>
+<!ELEMENT tooltipItems ((tooltip+))>
+<!ATTLIST tooltipItems  id  ID  #REQUIRED>
+<!ELEMENT tooltip (#PCDATA)>
+<!ATTLIST tooltip  id  ID  #REQUIRED>
+<!ELEMENT statusItems ((status+))>
+<!ATTLIST statusItems  id  ID  #REQUIRED>
+<!ELEMENT status (#PCDATA)>
+<!ATTLIST status  id  ID  #REQUIRED>
+<!ELEMENT menuItems ((menu+))>
+<!ATTLIST menuItems  id  ID  #REQUIRED>
+<!ELEMENT menu (#PCDATA)>
+<!ATTLIST menu  id  ID  #REQUIRED>
+<!ELEMENT dialogItems ((dialog+))>
+<!ATTLIST dialogItems id  ID  #REQUIRED>
+<!ELEMENT dialog (#PCDATA)>
+<!ATTLIST dialog  id  ID  #REQUIRED> ]>
+<javaIRC>
+    <!-- Start of Menu Items -->
+    <menuItems id="ID_1000">
+        <menu id="ID_1001">Power Switch</menu>
+        <menu id="ID_1002">Virtual Drives</menu>
+        <menu id="ID_1003">Keyboard</menu>
+        <menu id="ID_1004">Momentary Press</menu>
+        <menu id="ID_1005">Press and Hold</menu>
+        <menu id="ID_1006">Cold Boot</menu>
+        <menu id="ID_1007">Reset</menu>
+        <menu id="ID_1008">CTRL-ALT-DEL</menu>
+        <menu id="ID_1009">Num Lock</menu>
+        <menu id="ID_100a">Removable Media</menu>
+        <menu id="ID_100b">CD/DVD-ROM</menu>
+        <menu id="ID_100c">Virtual Image</menu>
+        <menu id="ID_100d">Create Disk Image</menu>
+        <menu id="ID_100e">Keyboard Layout</menu>
+        <menu id="ID_100f">English (United States)</menu>
+        <menu id="ID_1010">English (United Kingdom)</menu>
+        <menu id="ID_1011">French</menu>
+        <menu id="ID_1012">Italian</menu>
+        <menu id="ID_1013">German</menu>
+        <menu id="ID_1014">Spanish (Spain)</menu>
+        <menu id="ID_1015">Japanese</menu>
+        <menu id="ID_1016">Spanish (Latin America)</menu>
+        <menu id="ID_1017">French Belgium</menu>
+        <menu id="ID_1018">French Canadian</menu>
+        <menu id="ID_1019">Danish</menu>
+        <menu id="ID_101a">Norwegian</menu>
+        <menu id="ID_101b">Portugese</menu>
+        <menu id="ID_101c">Swedish </menu>
+        <menu id="ID_101d">Finnish </menu>
+        <menu id="ID_101e">Swiss (French)</menu>
+        <menu id="ID_101f">Swiss (German)</menu>
+        <menu id="ID_1020">Caps Lock</menu>
+        <menu id="ID_1021">View Hot Keys</menu>
+        <menu id="ID_1022">Image File</menu>
+        <menu id="ID_1023">URL </menu>
+        <menu id="ID_1024">#PRODABR# Integrated Remote Console - Server:</menu>
+        <menu id="ID_1025">| #PRODABR#:</menu>
+        <menu id="ID_1026">| Enclosure:</menu>
+        <menu id="ID_1027">| Bay:</menu>
+        <menu id="ID_1028">Help</menu>
+        <menu id="ID_1029">About</menu>
+    </menuItems>    
+    <!-- End of Menu Items -->
+    <!-- Start of dialog Items -->
+    <dialogItems id="ID_2000">
+        <dialog id="ID_2001">Device </dialog>
+        <dialog id="ID_2002"> is not a CD/DVD-ROM</dialog>
+        <dialog id="ID_2003"> is not a floppy/USBkey</dialog>
+        <dialog id="ID_2004"> is neither a floppy/USBkey nor a CD/DVD-ROM</dialog>
+        <dialog id="ID_2005">Network Error</dialog>
+        <dialog id="ID_2006">Another virtual media client is connected. Please check other interfaces like scriptable virtual media</dialog>
+        <dialog id="ID_2007">Invalid Login. Try again.</dialog>
+        <dialog id="ID_2008">Invalid Login.</dialog>
+        <dialog id="ID_2009">#PRODABR# is not Licensed for Virtual Media.</dialog>
+        <dialog id="ID_200a">The Virtual Device is not configured as a floppy drive.</dialog>
+        <dialog id="ID_200b">Virtual media permission is required.</dialog>
+        <dialog id="ID_200c">Unexpected HELLO response</dialog>
+        <dialog id="ID_200d">Connection Failed</dialog>
+        <dialog id="ID_200e">Network Error</dialog>
+        <dialog id="ID_200f">The Virtual Device is not configured as a CD/DVD-ROM drive.</dialog>
+        <dialog id="ID_2010">Error updating device configuration</dialog>
+        <dialog id="ID_2011">Error retrieving new key</dialog>
+        <dialog id="ID_2012">Error parsing new key</dialog>
+        <dialog id="ID_2013">Can't change disk</dialog>
+        <dialog id="ID_2014">Error</dialog>
+        <dialog id="ID_2015">This #PRODABR# is not licensed to use the</dialog>
+        <dialog id="ID_2016">"Scripted virtual media"</dialog>
+        <dialog id="ID_2017">"Integrated Remote Console after server POST is complete"</dialog>
+
+        <dialog id="ID_2021">Unsupported video mode</dialog>
+        <dialog id="ID_2022">Your server is set to an unsupported video mode. 1600x1200 or less is required for remote console.</dialog>
+        <dialog id="ID_2023">Remote console session seized</dialog>
+        <dialog id="ID_2024">This remote console has been acquired by</dialog>
+        <dialog id="ID_2025"> at network address </dialog>
+        <dialog id="ID_2026">Remote console session</dialog>
+        <dialog id="ID_2027">Sharing request from</dialog>
+        <dialog id="ID_2028">is denied (Share is not supported currently in Java Remote Console)</dialog>
+        <dialog id="ID_2029">You may not have permission</dialog>
+        <dialog id="ID_202a">. It is also possible that your session has timed out.</dialog>
+        <dialog id="ID_202b">Session closed due to Firmware Upgrade</dialog>
+        <dialog id="ID_202c">License Required</dialog>
+        <dialog id="ID_202d">feature.</dialog>
+        <dialog id="ID_202e">License information and a free trial license are available at: #WWWLIC#.</dialog>
+        <dialog id="ID_202f">Access Denied</dialog>
+        <dialog id="ID_2030">There are no more free sessions to connect to this #PRODABR#.</dialog>
+        <dialog id="ID_2031">Make sure that all Virtual Drives are disconnected.</dialog>
+        <dialog id="ID_2032">Could not disconnect</dialog>
+        <dialog id="ID_2033">Client</dialog>
+        <dialog id="ID_2034">is already connected to Virtual Floppy drive. Please disconnect the same before connecting new Client</dialog>
+        <dialog id="ID_2035">is already connected to Virtual CD drive. Please disconnect the same before connecting new Client</dialog>
+        <dialog id="ID_2036">Your browser session may have timed out.</dialog>
+        <dialog id="ID_2037">Could not open CDROM</dialog>
+        <dialog id="ID_2038">Diskette in drive</dialog>
+        <dialog id="ID_2039">is write protected.</dialog>
+        <dialog id="ID_203a">Unable to determine disk geometry. Make sure that a disk is in the drive.</dialog>
+        <dialog id="ID_203b">Unable to open file</dialog>
+        <dialog id="ID_203c">Error during</dialog>
+        <dialog id="ID_203d">image</dialog>
+        <dialog id="ID_203e">diskette</dialog>
+        <dialog id="ID_203f">creation</dialog>
+        <dialog id="ID_2040">The CDROM drive reports a media error</dialog>
+        <dialog id="ID_2041">Command</dialog>
+        <dialog id="ID_2042">Sense Code</dialog>
+        <dialog id="ID_2043">Could not open CDROM</dialog>
+        <dialog id="ID_2044">None</dialog>
+        <dialog id="ID_2045">Choose Disk Image File</dialog>
+        <dialog id="ID_2046">Choose CD/DVD-ROM Image File</dialog>
+        <dialog id="ID_2047">Permission to acquire this session has been denied.</dialog>
+        <dialog id="ID_2048">User</dialog>
+        <dialog id="ID_2049">at network address</dialog>
+        <dialog id="ID_205a">would like to acquire the session. Allow this?</dialog>
+        <dialog id="ID_205b">Permission will be automatically granted in </dialog>
+        <dialog id="ID_205c">Seconds</dialog>
+        <dialog id="ID_205d">Yes</dialog>
+        <dialog id="ID_205e">No</dialog>
+        <dialog id="ID_205f">Please verify with your administrator that you have permission to use this #PRODABR# and that the Active Session limit has not been reached.</dialog>
+        <dialog id="ID_2060">is not accessible.</dialog>
+        <dialog id="ID_2061">#PRODABR# resetting. Please try to reconnect in 30 seconds.</dialog>
+        <dialog id="ID_2062">Image File at URL</dialog>
+        <dialog id="ID_2063">Please enter the URL to the image file you wish to mount as a virtual drive</dialog>
+        <dialog id="ID_2064">#PRODABR# experienced an error attempting to insert the media. Check to ensure whether a valid URL was entered.</dialog>
+        <dialog id="ID_2065"> for remote console</dialog>
+        <dialog id="ID_2066"> for virtual media</dialog>
+        <dialog id="ID_2067"> for virtual power switch operations</dialog>
+    </dialogItems>    
+    <!-- End of dialog Items -->
+    <!-- Start of status Items -->
+    <statusItems id="ID_3000">
+        <status id="ID_3001">Video_suspended</status>
+        <status id="ID_3002">No Video</status>
+        <status id="ID_3003">Video:</status>
+        <status id="ID_3004"></status>
+        <status id="ID_3005">RC4</status>
+        <status id="ID_3006">AES</status>
+        <status id="ID_3007">AES-256</status>
+        <status id="ID_3008">Connecting... </status>
+        <status id="ID_3009">Online</status>
+        <status id="ID_300a">Connection Failure.. </status>
+        <status id="ID_300b">Access denied</status>
+        <status id="ID_300c">Connected</status>
+        <status id="ID_300d">Offline</status>
+        <status id="ID_300e">DVC Mode off at run</status>
+        <status id="ID_300f">DVC Mode (RC4-128 bit)-1 </status>
+        <status id="ID_3010">DVC Mode (no encryption)</status>
+        <status id="ID_3011">Retrying connection</status>
+        <status id="ID_3012">Session Acquired by another user.</status>
+        <status id="ID_3013">"Session Closed by Firmware Upgrade."</status>
+        <status id="ID_3014">Session Closed due to Timeout or Unauthorized Access.</status>
+        <!-- Start of other UI Items -->
+        <status id="ID_3100">Create Media Image</status>
+        <status id="ID_3101">Create Disk Image</status>
+        <status id="ID_3102">Drive</status>
+        <status id="ID_3103">Media Drive</status>
+        <status id="ID_3104">Media File</status>
+        <status id="ID_3105">Image File</status>
+        <status id="ID_3106">None</status>
+        <status id="ID_3107">Disk >> Image</status>
+        <status id="ID_3108">Image >> Disk</status>
+        <status id="ID_3109">Browse</status>
+        <status id="ID_310a">Create</status>
+        <status id="ID_310b">Cancel</status>
+        <status id="ID_310c">Create Disk Image</status>
+        <status id="ID_310d">Select Drive File</status>
+        <status id="ID_310e">Creating image file, please wait...</status>
+        <status id="ID_310f">Creating disk, please wait...</status>
+        <status id="ID_3110">Image file was created successfully.</status>
+        <status id="ID_3111">Disk was created successfully.</status>
+        <status id="ID_3112">Remote Console is in Use.</status>
+        <status id="ID_3113">Remote console is in use. Please retry later or attempt to seize control.</status>
+        <status id="ID_3114">Acquire</status>
+        <status id="ID_3115">Cancel</status>
+        <status id="ID_3116">Close</status>
+        <status id="ID_3117">VirtualMedia</status>
+        <status id="ID_3118">Waiting for Permission...</status>
+        <status id="ID_3119">Conversion Type</status>
+        <status id="ID_3120">OK</status> 
+        <status id="ID_3121">Connect</status>
+        <status id="ID_3122">Drive</status>
+        <status id="ID_3123">Image File</status>
+        <status id="ID_3124">Progess</status>
+        <status id="ID_3125">Mounting URL</status>
+        <status id="ID_3126">POST Code: </status>
+        <!-- End of other UI Items -->
+    </statusItems>    
+    <!-- End of status Items -->
+    <!-- Start of tooltip Items -->
+    <tooltipItems id="ID_4000">
+        <tooltip id="ID_4001">Power LED</tooltip>
+        <tooltip id="ID_4002">Health LED</tooltip>
+        <tooltip id="ID_4003">Encryption</tooltip>
+        <tooltip id="ID_4004">Activity LED for virtual media mounted by this application. Does not show activity for URL mounted virtual media.</tooltip>
+    </tooltipItems>    
+    <!-- End of tooltip Items -->
+</javaIRC>
