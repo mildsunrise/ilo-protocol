@@ -143,28 +143,30 @@ public class cim
   private static final int MODE2 = 47;
   private static final int SIZE_OF_ALL = 48;
 
+  private static int[] dvc_getmask = new int[] { 0, 1, 3, 7, 15, 31, 63, 127, 255 };
+  private static int[] dvc_reversal = new int[256];
+  private static int[] dvc_left = new int[256];
+  private static int[] dvc_right = new int[256];
+
+  private static int[] dvc_lru_lengths = new int[] { 0, 0, 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
+  
+
+  private static int dvc_ib_acc = 0;
+  private static int dvc_ib_bcnt = 0;
+
+
+
   private static int[] bits_to_read = new int[] { 0, 1, 1, 1, 1, 1, 2, 3, 5, 5, 1, 1, 3, 3, 8, 1, 1, 7, 1, 1, 3, 7, 1,
       1, 8, 1, 7, 0, 1, 3, 7, 1, 4, 0, 0, 0, 1, 0, 1, 7, 7, 5, 5, 1, 8, 8, 1, 4 };
 
-  private static int[] next_0 = new int[] { 1, 2, 31, 2, 2, 10, 10, 10, 10, 41, 2, 33, 2, 2, 2, 16, 19, 39, 22, 20, 1,
-      1, 34, 25, 46, 26, 40, 1, 29, 1, 1, 36, 10, 2, 1, 35, 8, 37, 38, 1, 47, 42, 10, 43, 45, 45, 1, 1 };
+  private static int[] next_0 = new int[] { 1, 2, 31, 2, 2, 10, 10, 10, 10, 41, 2, 33, 2, 2, 2, 16, 19, 39, 22, 20, 1, 1, 34, 25, 46, 26, 40, 1, 29, 1, 1, 36, 10, 2, 1, 35, 8, 37, 38, 1, 47, 42, 10, 43, 45, 45, 1, 1 };
 
-  private static int[] next_1 = new int[] { 1, 15, 3, 11, 11, 10, 10, 10, 10, 41, 11, 12, 2, 2, 2, 17, 18, 39, 23, 21,
-      1, 1, 28, 24, 46, 27, 40, 1, 30, 1, 1, 35, 10, 2, 1, 35, 9, 37, 38, 1, 47, 42, 10, 0, 45, 45, 24, 1 };
-
+  private static int[] next_1 = new int[] { 1, 15, 3, 11, 11, 10, 10, 10, 10, 41, 11, 12, 2, 2, 2, 17, 18, 39, 23, 21, 1, 1, 28, 24, 46, 27, 40, 1, 30, 1, 1, 35, 10, 2, 1, 35, 9, 37, 38, 1, 47, 42, 10, 0, 45, 45, 24, 1 };
   
   private static int dvc_cc_active = 0;
   private static int[] dvc_cc_color = new int[17];
   private static int[] dvc_cc_usage = new int[17];
   private static int[] dvc_cc_block = new int[17];
-
-  
-  private static int[] dvc_lru_lengths = new int[] { 0, 0, 0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4 };
-  
-  private static int[] dvc_getmask = new int[] { 0, 1, 3, 7, 15, 31, 63, 127, 255 };
-  private static int[] dvc_reversal = new int[256];
-  private static int[] dvc_left = new int[256];
-  private static int[] dvc_right = new int[256];
   
   private static int dvc_pixel_count;
   
@@ -173,12 +175,13 @@ public class cim
   private static int dvc_size_y;
   private static int dvc_y_clipped;
   private static int dvc_lastx;
-  private static int dvc_ib_acc = 0; private static int dvc_lasty; private static int dvc_newx; private static int dvc_newy; private static int dvc_color;
+  private static int dvc_lasty;
+  private static int dvc_newx;
+  private static int dvc_newy;
+  private static int dvc_color;
   private static int dvc_last_color;
-  private static int dvc_ib_bcnt = 0;
   
   private static int dvc_zero_count = 0;
-
   
   private static int dvc_decoder_state = 0;
   
@@ -1488,17 +1491,11 @@ public class cim
   }
 
   
-  protected void next_block(int paramInt) {
-    boolean bool = true;
-    if (!video_detected)
-      bool = false;
-    
+  protected void next_block(int blocks) {
     if (dvc_pixel_count != 0) {
       if (dvc_y_clipped > 0 && dvc_lasty == dvc_size_y) {
-        int m = this.color_remap_table[0];
-        for (int k = dvc_y_clipped; k < 256; k++) {
-          block[k] = m;
-        }
+        for (int k = dvc_y_clipped; k < 256; k++)
+          block[k] = this.color_remap_table[0];
       } 
     }
     
@@ -1507,8 +1504,8 @@ public class cim
     
     int i = dvc_lastx * this.blockWidth;
     int j = dvc_lasty * this.blockHeight;
-    while (paramInt != 0) {
-      if (bool)
+    while (blocks != 0) {
+      if (video_detected)
         this.screen.paste_array(block, i, j, 16, this.blockHeight);
       
       dvc_lastx++;
@@ -1516,7 +1513,7 @@ public class cim
 
       if (dvc_lastx >= dvc_size_x)
         break; 
-      paramInt--;
+      blocks--;
     } 
   }
 
@@ -1544,45 +1541,28 @@ public class cim
   }
 
   final int add_bits(char input) {
-    dvc_zero_count += dvc_right[input];
-    
-    char c = input;
-    dvc_ib_acc |= c << dvc_ib_bcnt;
-    
+    dvc_ib_acc |= input << dvc_ib_bcnt;
     dvc_ib_bcnt += 8;
-    
-    if (dvc_zero_count > 30) {
-      if (!debug_msgs || 
-        dvc_decoder_state != 38 || fatal_count >= 40 || fatal_count > 0);
-
-      dvc_next_state = 43;
-      dvc_decoder_state = 43;
-      return 4;
-    } 
-    
-    if (input != '\000') {
-      dvc_zero_count = dvc_left[input];
-    }
     return 0;
   }
 
-  
-  final boolean get_bits(int input) {
-    if (input == 1) {
-      dvc_code = dvc_ib_acc & 0x1;
+  /** Consume N bits from dvc_ib_acc and place them at bits 0, 1, .. N-1 of dvc_code */
+  final boolean get_bits(int bits) {
+    if (bits == 1) {
+      dvc_code = dvc_ib_acc & 1;
       dvc_ib_acc >>= 1;
       dvc_ib_bcnt--;
       return false;
     }
-    if (input == 0) {
+    if (bits == 0) {
       return false;
     }
     
-    int i = dvc_ib_acc & dvc_getmask[input];
-    dvc_ib_bcnt -= input;
-    dvc_ib_acc >>= input;
+    int i = dvc_ib_acc & dvc_getmask[bits];
+    dvc_ib_bcnt -= bits;
+    dvc_ib_acc >>= bits;
     i = dvc_reversal[i];
-    i >>= 8 - input;
+    i >>= 8 - bits;
     dvc_code = i;
     
     return false;
@@ -1594,20 +1574,30 @@ public class cim
     byte exit = 0;
 
     add_bits(input);
+  
+    dvc_zero_count += dvc_right[input];
+    if (dvc_zero_count > 30) {
+      if (!debug_msgs || 
+        dvc_decoder_state != 38 || fatal_count >= 40 || fatal_count > 0);
+      dvc_next_state = 43;
+      dvc_decoder_state = 43;
+    } else if (input != 0) {
+      dvc_zero_count = dvc_left[input];
+    }
+
     dvc_new_bits = input;
     count_bytes++;
-    int bits = 0;
 
     while (!exit) {
-      bits = bits_to_read[dvc_decoder_state];
+      int bitsToRead = bits_to_read[dvc_decoder_state];
       
-      if (bits > dvc_ib_bcnt) {
+      if (bitsToRead > dvc_ib_bcnt) {
         exit = 0;        
         break;
       }
       
-      boolean lruRes = get_bits(bits);
-      dvc_counter_bits += bits;
+      boolean lruRes = get_bits(bitsToRead);
+      dvc_counter_bits += bitsToRead;
 
       if (dvc_code == 0) {
         dvc_next_state = next_0[dvc_decoder_state];
@@ -1784,8 +1774,8 @@ public class cim
             dvc_next_state = 38;
           }
 
-          if ((dvc_ib_bcnt & 0x7) != 0)
-            get_bits(dvc_ib_bcnt & 0x7); 
+          if ((dvc_ib_bcnt % 8) != 0)
+            get_bits(dvc_ib_bcnt % 8); 
           timeout_count = count_bytes;
           
           this.screen.repaint_it(1);
@@ -1828,7 +1818,7 @@ public class cim
                 
                 this.screen.clearScreen();
                 dvc_newx = 50;
-                dvc_code = 38;
+                dvc_code = 38; // FIXME: possible bug, they meant dvc_next_state
                 break;
 
               case 6:
@@ -1850,8 +1840,8 @@ public class cim
 
               case 9:
                 System.out.println("received keychg and cleared bits\n");
-                if ((dvc_ib_bcnt & 0x7) != 0) {
-                  get_bits(dvc_ib_bcnt & 0x7);
+                if ((dvc_ib_bcnt % 8) != 0) {
+                  get_bits(dvc_ib_bcnt % 8);
                 }
                 break;
               
@@ -2227,48 +2217,46 @@ public class cim
 
 
   
-  void buildPixelTable(int paramInt) {
-    byte b;
-    int i = 1 << paramInt * 3;
+  void buildPixelTable(int bits_per_color) {
+    int num_colors = 1 << (bits_per_color * 3);
 
-    
-    switch (paramInt) {
-      
+    switch (bits_per_color) {
       case 5:
-        for (b = 0; b < i; b++) {
-          this.color_remap_table[b] = (b & 0x1F) << 3;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0x3E0) << 6;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0x7C00) << 9;
+        for (int i = 0; i < num_colors; i++) {
+          this.color_remap_table[i] = (i & 0x1F) << 3;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0x3E0) << 6;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0x7C00) << 9;
         } 
         break;
       
       case 4:
-        for (b = 0; b < i; b++) {
-          this.color_remap_table[b] = (b & 0xF) << 4;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0xF0) << 8;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0xF00) << 12;
-        } 
+        for (int i = 0; i < num_colors; i++) {
+          this.color_remap_table[i] = (i & 0xF) << 4;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0xF0) << 8;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0xF00) << 12;
+        }
         break;
+
       case 3:
-        for (b = 0; b < i; b++) {
-          this.color_remap_table[b] = (b & 0xF) << 5;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0xF0) << 11;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0xF00) << 15;
+        for (int i = 0; i < num_colors; i++) {
+          this.color_remap_table[i] = (i & 0xF) << 5;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0xF0) << 11;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0xF00) << 15;
         } 
         break;
       
       case 2:
-        for (b = 0; b < i; b++) {
-          this.color_remap_table[b] = (b & 0xF) << 6;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0xF0) << 15;
-          this.color_remap_table[b] = this.color_remap_table[b] | (b & 0xF00) << 18;
+        for (int i = 0; i < num_colors; i++) {
+          this.color_remap_table[i] = (i & 0xF) << 6;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0xF0) << 15;
+          this.color_remap_table[i] = this.color_remap_table[i] | (i & 0xF00) << 18;
         } 
         break;
     } 
   }
   
   void setBitsPerColor(int paramInt) {
-    this.bitsPerColor = 5 - (paramInt & 0x3);
+    this.bitsPerColor = 5 - (paramInt & 3);
 
     bits_to_read[8] = this.bitsPerColor;
     bits_to_read[9] = this.bitsPerColor;
