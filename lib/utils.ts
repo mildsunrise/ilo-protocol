@@ -26,14 +26,14 @@ export const mask = (nbits: number) => (1 << nbits) - 1
 const reversal = getU8ReversedLUT()  // bits reversed    
 
 export class BitQueue {
-    bits: number
+    protected bits: number
     nbits: number
 
     constructor() {
-        this.clear()
+        this.init()
     }
 
-    clear() {
+    init() {
         this.bits = 0
         this.nbits = 0
     }
@@ -64,5 +64,76 @@ export class BitQueue {
 
 
 export class LRUCache {
+    readonly lastUsed = new Uint32Array(17)
+    protected readonly value = new Uint32Array(17)
+    protected readonly blockNumber = new Uint32Array(17)
+    nentries: number
 
+    constructor() {
+        this.init()
+    }
+
+    init() {
+        this.nentries = 0
+    }
+
+    protected touch(entry: number) {
+        const usage = this.lastUsed[entry]
+        for (let i = 0; i < this.nentries; i++) {
+            if (this.lastUsed[i] < usage)
+                this.lastUsed[i]++
+        }
+        this.lastUsed[entry] = 0
+        this.blockNumber[entry] = 1
+    }
+
+    /**
+     * Add a value to the cache.
+     * Returns true if an entry with that value already existed in the cache
+     */
+    add(n: number): boolean {
+        let oldestEntry
+        for (let i = 0; i < this.nentries; i++) {
+            if (this.lastUsed[i] === this.nentries - 1)
+                oldestEntry = i
+            if (this.value[i] !== n) continue
+            this.touch(i)
+            return true
+        }
+
+        // add at the end or replace oldest entry
+        let i = oldestEntry
+        if (this.nentries < this.value.length) {
+            i = this.nentries
+            this.lastUsed[i] = this.nentries
+            this.nentries++
+        }
+        this.value[i] = n
+        this.touch(i)
+    }
+
+    /** Find an entry by its usage, then touch it and return its value, or undefined if not found */
+    find(usage: number): number {
+        for (let i = 0; i < this.nentries; i++) {
+            if (this.lastUsed[i] !== usage) continue
+            this.touch(i)
+            return this.value[i]
+        }
+    }
+
+    /** Delete entries referring to oldest block (block 0) */
+    prune() {
+        for (let i = 0; i < this.nentries; ) {
+            if (this.blockNumber[i] > 0) {
+                this.blockNumber[i]--
+                i++
+                continue
+            }
+            // delete this item
+            this.nentries--
+            this.blockNumber[i] = this.blockNumber[this.nentries]
+            this.lastUsed[i] = this.lastUsed[this.nentries]
+            this.value[i] = this.value[this.nentries]
+        }
+    }
 }

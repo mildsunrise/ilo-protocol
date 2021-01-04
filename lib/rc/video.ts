@@ -33,14 +33,6 @@ export enum Command2 {
     ENCRYPT = 192,
 }
 
-export enum Cursor {
-    DEFAULT = 0,
-    CROSSHAIR,
-    NONE,
-    SQUARE, // 2x2 gray (#808080) square, origin at (0,0)
-    POINTER, // again in gray
-}
-
 export enum MessageChannel {
     STATUS_FIELD_3 = 1,
     STATUS_FIELD_4 = 2,
@@ -89,7 +81,7 @@ enum State {
     ADVANCE_BLOCKS_1 = 34,
     BEGIN_RGB = 36,
     N_37 = 37,
-    PIXEL_ERROR = 38,
+    FATAL_ERROR = 38,
     SET_POSITION_Y = 39,
     SET_HEIGHT = 40,
     SET_GREEN = 41,
@@ -114,7 +106,7 @@ const STATE_DATA: { [state: number]: StateData } = {
 
     // Pixel loop ( PIXEL_BEGIN -> {pixcode | rgb} -> AFTER_COLOR -> [fill] -> PIXEL_BEGIN )
 
-    [State.PIXEL_BEGIN]: { bits: 1, next: State.PIXCODE_1, next0: State.GO_TO_PIXCODE_OR_BEGIN_RGB },
+    [State.PIXEL_BEGIN]: { bits: 1, next: State.PIXCODE_1, next0: State.GO_TO_PIXCODE_OR_BEGIN_RGB }, // + BEGIN
     [State.GO_TO_PIXCODE_OR_BEGIN_RGB]: { bits: 1, next: State.BEGIN_RGB },
 
     [State.PIXCODE_1]:  { bits: 0, next: State.AFTER_COLOR },
@@ -174,9 +166,9 @@ const STATE_DATA: { [state: number]: StateData } = {
     [State.STRING_READ]: { bits: 8, next: State.STRING_READ, next0: State.BEGIN },
 
 
-    // Fail states
+    // Other states
 
-    [State.PIXEL_ERROR]: { bits: 1, next: State.PIXEL_ERROR },
+    [State.FATAL_ERROR]: { bits: 1, next: State.FATAL_ERROR },
     [State.DISCARD_QUEUE]: { bits: 1, next: State.RESET, next0: State.DISCARD_QUEUE },
     [State.N_37]: { bits: 0, next: State.N_37 }, // FIXME
 }
@@ -192,13 +184,13 @@ const STATE_DATA: { [state: number]: StateData } = {
  */
 export class DvcDecoder {
     readonly blockWidth = 16
-    readonly blockHeight = 16 // FIXME
 
     byteCount: number // bytes processed by consumeBits
     readonly bitQueue = new BitQueue()
     dvc_zero_count: number // how many consecutive zeros we've pushed to the queue
 
     fatal_count: number
+    timeout_count: number
     dvc_decoder_state: State
     dvc_next_state: State
     
@@ -213,22 +205,46 @@ export class DvcDecoder {
     currentColor: [number, number, number]
     cache = new LRUCache()
 
+    block = new Uint32Array(16 * 16)
+    blockHeight: number
+    dvc_pixel_count: number
+
     currentCommand: number[]
     currentString: { channel: MessageChannel, data: string }
 
     protected initQueue() {
         this.byteCount = 0
-        this.bitQueue.clear()
+        this.bitQueue.init()
         this.dvc_zero_count = 0
     }
 
     public init() {
         this.initQueue()
 
-        // FIXME
+        this.fatal_count = 0
+        this.timeout_count = -1
+        this.dvc_decoder_state = this.dvc_next_state = State.RESET
+        
+        this.video_detected = false
+        this.size = [0, 0]
+        this.position = [0, 0]
+        this.dvc_newx = 0
+
+        this.bitsPerColor
+        this.dvc_pixcode = State.FATAL_ERROR
+        this.dvc_last_color = 0
+        this.currentColor = [0, 0, 0]
+        this.cache.init()
+
+        this.blockHeight = 16
+        this.dvc_pixel_count = 0
 
         this.currentCommand = []
         this.currentString = undefined
+    }
+
+    constructor() {
+        this.init()
     }
 
     protected consumeBits(byte: number) {
@@ -271,8 +287,8 @@ export class DvcDecoder {
         case State.PIXCODE_2B:
         case State.PIXCODE_3B:
         case State.PIXCODE_4B:
-            if (dvc_cc_active === 1) {
-                dvc_code = dvc_cc_usage[0]
+            if (this.cache.nentries === 1) {
+                dvc_code = this.cache.lastUsed[0]
             } else if (this.dvc_decoder_state === State.PIXCODE_0) {
                 dvc_code = 0
             } else if (this.dvc_decoder_state === State.PIXCODE_1) {
@@ -281,9 +297,9 @@ export class DvcDecoder {
                 dvc_code++
             }
 
-            this.dvc_last_color = cache_find(dvc_code)
-            if (this.dvc_last_color === -1) {
-                this.dvc_next_state = State.PIXEL_ERROR
+            this.dvc_last_color = this.cache.find(dvc_code)
+            if (this.dvc_last_color === undefined) {
+                this.dvc_next_state = State.FATAL_ERROR
                 break
             }
 
@@ -339,10 +355,11 @@ export class DvcDecoder {
             this.currentColor[2] = dvc_code << (8 - this.bitsPerColor)
 
             this.dvc_last_color = (this.currentColor[0] << 16) | (this.currentColor[1] << 8) | this.currentColor[0]
-            let cacheFail = cache_lru(this.dvc_last_color)
-            if (cacheFail) {
+            let alreadyThere = this.cache.add(this.dvc_last_color)
+            this.setPixcodeFromCacheEntries()
+            if (alreadyThere) {
                 // if (!debug_msgs || count_bytes > 6L) ;
-                this.dvc_next_state = State.PIXEL_ERROR
+                this.dvc_next_state = State.FATAL_ERROR
                 break
             }
 
@@ -377,13 +394,13 @@ export class DvcDecoder {
             break
 
         case State.N_27:
-            if (timeout_count == this.count_bytes - 1)
-                this.dvc_next_state = State.PIXEL_ERROR
+            if (this.timeout_count == this.byteCount - 1)
+                this.dvc_next_state = State.FATAL_ERROR
 
             const nbits = this.bitQueue.nbits % 8
             if (nbits != 0)
                 dvc_code = this.bitQueue.pop(nbits)
-            timeout_count = this.count_bytes
+            this.timeout_count = this.byteCount
 
             this.repaintScreen()
             break
@@ -412,8 +429,8 @@ export class DvcDecoder {
             break
 
         case State.RESET:
-            cache_reset();
-            dvc_pixel_count = 0;
+            this.cache.init()
+            this.dvc_pixel_count = 0
             this.position = [0, 0]
             this.currentColor = [0, 0, 0]
             this.dvc_last_color = 0 // FIXME: wasn't actually there but... shouldn't matter
@@ -424,7 +441,7 @@ export class DvcDecoder {
             this.currentCommand = []
             break
 
-        case State.PIXEL_ERROR:
+        case State.FATAL_ERROR:
             // if (this.fatal_count === 0) {
             //     debug_lastx = dvc_lastx;
             //     debug_lasty = dvc_lasty;
@@ -447,13 +464,13 @@ export class DvcDecoder {
             break
 
         case State.ADVANCE_BLOCKS_1:
-            next_block(1)
+            this.next_block(1)
             break
 
         case State.ADVANCE_BLOCKS_PLUS2:
             dvc_code += 2
         case State.ADVANCE_BLOCKS_N:
-            next_block(dvc_code)
+            this.next_block(dvc_code)
             break
 
         case State.SET_WIDTH:
@@ -466,17 +483,17 @@ export class DvcDecoder {
 
         case State.SET_YCLIPPED:
             this.position = [0, 0]
-            dvc_pixel_count = 0
-            cache_reset()
+            this.dvc_pixel_count = 0
+            this.cache.init()
 
-            dvc_y_clipped = (dvc_code > 0) ? (256 - 16 * dvc_code) : 0
+            // dvc_y_clipped = (dvc_code > 0) ? (256 - 16 * dvc_code) : 0
 
             this.video_detected = (this.size[0] !== 0 && this.size[1] !== 0)
             if (this.video_detected) {
                 const width = this.size[0] * this.blockWidth
                 const height = this.size[1] * 16 + dvc_code
                 this.setScreenDimensions(width, height)
-                SetHalfHeight()
+                this.blockHeight = this.size[1] > 101 ? 8 : 16
             } else {
                 this.noVideo()
             }
@@ -493,14 +510,15 @@ export class DvcDecoder {
 
 
         if (this.dvc_next_state === State.PIXEL_BEGIN &&
-            dvc_pixel_count === this.blockHeight * this.blockWidth) {
-            next_block(1)
-            cache_prune()
+            this.dvc_pixel_count === this.blockHeight * this.blockWidth) {
+            this.next_block(1)
+            this.cache.prune()
+            this.setPixcodeFromCacheEntries()
         }
 
         if (this.dvc_decoder_state === this.dvc_next_state &&
             this.dvc_decoder_state !== State.STRING_READ &&
-            this.dvc_decoder_state !== State.PIXEL_ERROR &&
+            this.dvc_decoder_state !== State.FATAL_ERROR &&
             this.dvc_decoder_state !== State.DISCARD_QUEUE) {
             console.log(`Machine hung in state ${this.dvc_decoder_state}`)
             return true
@@ -539,7 +557,7 @@ export class DvcDecoder {
 
             this.clearScreen()
             this.dvc_newx = 50
-            this.dvc_pixcode = State.PIXEL_ERROR
+            this.dvc_pixcode = State.FATAL_ERROR
             break
 
         case ServerCommand.NO_VIDEO:
@@ -549,7 +567,7 @@ export class DvcDecoder {
         case ServerCommand.SET_TS_TYPE:
             if (args.length < 1)
                 throw Error('SET_TS_TYPE without argument')
-            this.tsType = args[0]
+            this.setTsType(args[0])
             break
 
         case ServerCommand.KEYCHG:
@@ -593,10 +611,10 @@ export class DvcDecoder {
         }
     }
 
-    protected setPixcodeFromEntries() {       
-        const entries = this.dvc_cc_active 
+    protected setPixcodeFromCacheEntries() {       
+        const entries = this.cache.nentries 
         if (entries < 2) {
-            this.dvc_pixcode = State.PIXEL_ERROR
+            this.dvc_pixcode = State.FATAL_ERROR
         } else if (entries === 2) {
             this.dvc_pixcode = State.PIXCODE_0
         } else if (entries === 3) {
@@ -615,37 +633,67 @@ export class DvcDecoder {
     }
 
     protected getBitsToRead(n: number) {
-        if (this.dvc_decoder_state === State.SET_RED ||
-            this.dvc_decoder_state === State.SET_GREEN ||
-            this.dvc_decoder_state === State.SET_BLUE ||
-            this.dvc_decoder_state === State.SET_GRAYSCALE)
+        switch (this.dvc_decoder_state) {
+        case State.SET_RED:
+        case State.SET_GREEN:
+        case State.SET_BLUE:
+        case State.SET_GRAYSCALE:
             return this.bitsPerColor
+
+        case State.SET_X_ABSOLUTE:
+        case State.SET_POSITION:
+        case State.SET_POSITION_Y:
+        case State.ADVANCE_BLOCKS_N:
+            return this.blockHeight === 16 ? 7 : 8
+        }
         return n
     }
 
     protected addPixel() {
-        if (dvc_pixel_count >= this.blockHeight * this.blockWidth) {
-            this.dvc_next_state = State.PIXEL_ERROR
+        if (this.dvc_pixel_count >= this.blockHeight * this.blockWidth) {
+            this.dvc_next_state = State.FATAL_ERROR
             return true
         }
-
-        block[dvc_pixel_count] = this.dvc_last_color
-        dvc_pixel_count++
+        this.block[this.dvc_pixel_count++] = this.dvc_last_color
     }
 
     protected next_block(nblocks: number) {
-        // TODO
+        // FIXME: fill or cut rest of block with black, if we're on the clipping row
+        this.dvc_pixel_count = 0
+        this.dvc_next_state = State.BEGIN
+
+        for (let _ = 0; _ < nblocks; nblocks++) {
+            if (this.video_detected)
+                this.renderBlock(
+                    this.block.subarray(0, this.blockWidth * this.blockHeight),
+                    this.position[0] * this.blockWidth,
+                    this.position[1] * this.blockHeight,
+                    this.blockWidth, this.blockHeight)
+
+            this.position[0]++
+            if (this.position[0] >= this.size[0])
+                break
+        }
+    }
+
+    public process(byte: number) {
+        // FIXME: why are these things initialized there
+        this.consumeBits(byte)
+        // FIXME: implement going out of DVC mode
+        return true
     }
 
 
     // Methods for subclasses to implement:
     // (keep in mind enum parameters are not validated, usually u8)
     // (coordinates and sizes are in pixels)
+    // (block's items are 00RRGGBB colors)
 
     protected setVideoDecryption(cipher: DvcEncryption) {}
     protected setFramerate(n: number) {}
     protected setPowerStatus(hasPower: boolean) {}
     protected setInfo(licensed: number, flags: number) {}
+    protected setTsType(t: number) {} // 0 -> RDP, 1 -> VNC, other?
     protected printString(channel: MessageChannel, data: string) {}
 
     protected noVideo() {}
@@ -654,6 +702,7 @@ export class DvcDecoder {
     protected requestScreenRefresh() {} // request server to refresh screen
 
     protected setScreenDimensions(x: number, y: number) {}
+    protected renderBlock(block: Uint32Array, x: number, y: number, width: number, height: number) {}
     protected clearScreen() {}
     protected repaintScreen() {}
     protected invalidateScreen() {} // includes synchronous repaint(?)

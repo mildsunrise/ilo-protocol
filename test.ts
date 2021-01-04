@@ -67,6 +67,9 @@ async function main() {
         protected setInfo(licensed: number, flags: number) {
             console.log(`Licensed: ${licensed}  Flags: ${flags}`)
         }
+        protected setTsType(t: number) {
+            console.log(`TS type: ${t}`)
+        }
         protected printString(channel: MessageChannel, data: string) {
             console.log(`Message (channel ${MessageChannel[channel]}): ${JSON.stringify(data)}`)
         }
@@ -86,6 +89,9 @@ async function main() {
 
         protected setScreenDimensions(x: number, y: number) {
             console.log(`Screen dimensions: ${x} x ${y}`)
+        }
+        protected renderBlock(block: Uint32Array, x: number, y: number, width: number, height: number) {
+            console.log(`Got block at ${x} x ${y} (TODO)`)
         }
         protected clearScreen() {
             console.log('Clear screen')
