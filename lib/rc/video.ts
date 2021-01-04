@@ -230,7 +230,7 @@ export class DvcDecoder {
         this.position = [0, 0]
         this.dvc_newx = 0
 
-        this.bitsPerColor
+        this.bitsPerColor = 5
         this.dvc_pixcode = State.FATAL_ERROR
         this.dvc_last_color = 0
         this.currentColor = [0, 0, 0]
@@ -335,7 +335,7 @@ export class DvcDecoder {
             }
             break
 
-        case State.GO_TO_PIXCODE_OR_BEGIN_RGB:
+        case State.PIXCODE_OR_RGB:
             if (dvc_code !== 0)
                 this.dvc_next_state = this.dvc_pixcode
             break
@@ -354,7 +354,7 @@ export class DvcDecoder {
         case State.SET_BLUE:
             this.currentColor[2] = dvc_code << (8 - this.bitsPerColor)
 
-            this.dvc_last_color = (this.currentColor[0] << 16) | (this.currentColor[1] << 8) | this.currentColor[0]
+            this.dvc_last_color = (this.currentColor[0] << 16) | (this.currentColor[1] << 8) | this.currentColor[2]
             let alreadyThere = this.cache.add(this.dvc_last_color)
             this.setPixcodeFromCacheEntries()
             if (alreadyThere) {
@@ -375,21 +375,21 @@ export class DvcDecoder {
             break
 
         case State.SET_POSITION_Y:
-            this.size = [this.dvc_newx, dvc_code]
+            this.position = [this.dvc_newx, dvc_code]
             if (this.blockHeight == 16)
-                this.size[1] &= 0x7F
+                this.position[1] &= 0x7F
 
             //if (dvc_lasty <= dvc_size_y || debug_msgs) ;
             this.repaintScreen()
             break
 
         case State.SET_X_RELATIVE:
-            dvc_code += this.size[0] + 1
+            dvc_code += this.position[0] + 1
             //if (dvc_code <= dvc_size_x || debug_msgs) ;
         case State.SET_X_ABSOLUTE:
-            this.size[0] = dvc_code
+            this.position[0] = dvc_code
             if (this.blockHeight == 16)
-                this.size[0] &= 0x7F
+                this.position[0] &= 0x7F
             //if (dvc_lastx <= dvc_size_x || debug_msgs) ;
             break
 
@@ -533,7 +533,8 @@ export class DvcDecoder {
      * @param command command bytes (minimum length 1)
      */
     protected processCommand(commandBuffer: Buffer) {
-        const [ command, ...args ] = commandBuffer
+        const command = commandBuffer[commandBuffer.length - 1]
+        const args = commandBuffer.slice(0, commandBuffer.length - 1)
 
         switch (command) {
         case ServerCommand.GO_TO_N37:
@@ -662,7 +663,7 @@ export class DvcDecoder {
         this.dvc_pixel_count = 0
         this.dvc_next_state = State.BEGIN
 
-        for (let _ = 0; _ < nblocks; nblocks++) {
+        for (let i = 0; i < nblocks; i++) {
             if (this.video_detected)
                 this.renderBlock(
                     this.block.subarray(0, this.blockWidth * this.blockHeight),

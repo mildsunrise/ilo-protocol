@@ -47,8 +47,9 @@ export class Telnet {
                 this.state = { dvcMode: true, encryption: false }
             else
                 this.state.ctr1 = 0
+        } else {
+            throw new Error()
         }
-        throw new Error()
     }
 
     public sendDvc(data: Buffer) {
