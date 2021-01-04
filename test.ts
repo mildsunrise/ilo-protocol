@@ -80,6 +80,9 @@ async function main() {
         protected ping() {
             telnet.sendDvc(formatCommand(Command.ACK))
         }
+        protected requestScreenRefresh() {
+            telnet.sendDvc(formatCommand(Command.REFRESH_SCREEN))
+        }
 
         protected setScreenDimensions(x: number, y: number) {
             console.log(`Screen dimensions: ${x} x ${y}`)

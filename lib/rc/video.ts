@@ -1,5 +1,5 @@
 import { DvcEncryption } from './telnet'
-import { BitQueue, getU8LeftLUT, getU8RightLUT } from '../utils'
+import { BitQueue, getU8LeftLUT, getU8RightLUT, LRUCache } from '../utils'
 
 // look up tables for uint8
 const dvc_right = getU8RightLUT()        // amount of zeros starting from the right (8 if all bits zero)
@@ -53,53 +53,52 @@ export enum MessageChannel {
 
 enum State {
     RESET = 0,
-    INITIAL = 1,
-    N_2 = 2,
-    N_3 = 3,
-    N_4 = 4,
-    N_5 = 5,
-    N_6 = 6,
-    N_7 = 7,
-    SET_RED_GREEN = 8,
+    BEGIN = 1,
+    PIXEL_BEGIN = 2,
+    PIXCODE_1 = 3,
+    PIXCODE_0 = 4,
+    PIXCODE_1B = 5,
+    PIXCODE_2B = 6,
+    PIXCODE_3B = 7,
+    SET_GRAYSCALE = 8,
     SET_RED = 9,
-    N_10 = 10,
-    N_11 = 11,
-    PIXEL_FILL_PLUS2 = 12,
+    AFTER_COLOR = 10,
+    PIXEL_FILL = 11,
+    PIXEL_FILL2 = 12,
     PIXEL_FILL_PLUS8 = 13,
-    PIXEL_FILL = 14,
-    N_15 = 15,
-    N_16 = 16,
-    N_17 = 17,
-    N_18 = 18,
-    N_19 = 19,
-    N_20 = 20,
-    N_21 = 21,
-    N_22 = 22,
-    N_23 = 23,
+    PIXEL_FILL_N = 14,
+    OTHER = 15,
+    OTHER1 = 16,
+    SET_POSITION = 17,
+    OTHER2 = 18,
+    SET_X = 19,
+    SET_X_RELATIVE = 20,
+    SET_X_ABSOLUTE = 21,
+    ADVANCE_BLOCKS = 22,
+    OTHER3 = 23,
     COMMAND_READ = 24,
-    N_25 = 25,
-    N_26 = 26,
+    OTHER4 = 25,
+    SET_WIDTH = 26,
     N_27 = 27,
-    N_28 = 28,
-    N_29 = 29,
-    N_30 = 30,
-    N_31 = 31,
-    N_32 = 32,
-    PIXEL_FILL1 = 33,
-    N_34 = 34,
-    N_35 = 35,
-    N_36 = 36,
+    ADVANCE_BLOCKS2 = 28,
+    ADVANCE_BLOCKS_PLUS2 = 29,
+    ADVANCE_BLOCKS_N = 30,
+    GO_TO_PIXCODE_OR_BEGIN_RGB = 31,
+    PIXCODE_4B = 32,
+    PIXEL_FILL_1 = 33,
+    ADVANCE_BLOCKS_1 = 34,
+    BEGIN_RGB = 36,
     N_37 = 37,
-    PIXEL_FAIL = 38,
-    N_39 = 39,
-    N_40 = 40,
+    PIXEL_ERROR = 38,
+    SET_POSITION_Y = 39,
+    SET_HEIGHT = 40,
     SET_GREEN = 41,
     SET_BLUE = 42,
-    RELOAD = 43,
+    DISCARD_QUEUE = 43,
     STRING_START = 44,
     STRING_READ = 45,
     COMMAND_MORE = 46,
-    N_47 = 47,
+    SET_YCLIPPED = 47,
 }
 
 interface StateData {
@@ -109,74 +108,122 @@ interface StateData {
 }
 
 const STATE_DATA: { [state: number]: StateData } = {
-    [State.RESET]: { bits: 0, next: State.INITIAL },
-    [State.INITIAL]: { bits: 1, next: State.N_15, next0: State.N_2 },
-    [State.PIXEL_FAIL]: { bits: 1, next: State.PIXEL_FAIL },
-    [State.N_2]: { bits: 1, next: State.N_3, next0: State.N_31 },
-    [State.N_3]: { bits: 1, next: State.N_11, next0: State.N_2 },
-    [State.N_4]: { bits: 1, next: State.N_11, next0: State.N_2 },
-    [State.N_5]: { bits: 1, next: State.N_10 },
-    [State.N_6]: { bits: 2, next: State.N_10 },
-    [State.N_7]: { bits: 3, next: State.N_10 },
-    [State.N_10]: { bits: 1, next: State.N_11, next0: State.N_2 },
-    [State.N_11]: { bits: 1, next: State.PIXEL_FILL_PLUS2, next0: State.PIXEL_FILL1 },
-    [State.PIXEL_FILL1]: { bits: 0, next: State.N_2 },
-    [State.PIXEL_FILL_PLUS2]: { bits: 3, next: State.N_2 },
-    [State.PIXEL_FILL_PLUS8]: { bits: 3, next: State.N_2 },
-    [State.PIXEL_FILL]: { bits: 8, next: State.N_2 },
-    [State.N_15]: { bits: 1, next: State.N_17, next0: State.N_16 },
-    [State.N_16]: { bits: 1, next: State.N_18, next0: State.N_19 },
-    [State.N_17]: { bits: 7, next: State.N_39 },
-    [State.N_18]: { bits: 1, next: State.N_23, next0: State.N_22 },
-    [State.N_19]: { bits: 1, next: State.N_21, next0: State.N_20 },
-    [State.N_20]: { bits: 3, next: State.INITIAL },
-    [State.N_21]: { bits: 7, next: State.INITIAL },
-    [State.N_22]: { bits: 1, next: State.N_28, next0: State.N_34 },
-    [State.N_23]: { bits: 1, next: State.COMMAND_READ, next0: State.N_25 },
-    [State.N_25]: { bits: 1, next: State.N_27, next0: State.N_26 },
-    [State.N_26]: { bits: 7, next: State.N_40 },
-    [State.N_27]: { bits: 0, next: State.INITIAL },
-    [State.N_28]: { bits: 1, next: State.N_30, next0: State.N_29 },
-    [State.N_29]: { bits: 3, next: State.INITIAL },
-    [State.N_30]: { bits: 7, next: State.INITIAL },
-    [State.N_31]: { bits: 1, next: State.N_35, next0: State.N_36 },
-    [State.N_32]: { bits: 4, next: State.N_10 },
-    [State.N_34]: { bits: 0, next: State.INITIAL },
-    [State.N_35]: { bits: 0, next: State.N_35 },
-    [State.N_36]: { bits: 1, next: State.SET_RED, next0: State.SET_RED_GREEN },
-    [State.N_37]: { bits: 0, next: State.N_37 },
-    [State.N_39]: { bits: 7, next: State.INITIAL },
-    [State.N_40]: { bits: 7, next: State.N_47 },
-    [State.SET_RED_GREEN]: { bits: 5, next: State.N_10 },
+    [State.RESET]: { bits: 0, next: State.BEGIN },
+    [State.BEGIN]: { bits: 1, next: State.OTHER, next0: State.PIXEL_BEGIN },
+
+
+    // Pixel loop ( PIXEL_BEGIN -> {pixcode | rgb} -> AFTER_COLOR -> [fill] -> PIXEL_BEGIN )
+
+    [State.PIXEL_BEGIN]: { bits: 1, next: State.PIXCODE_1, next0: State.GO_TO_PIXCODE_OR_BEGIN_RGB },
+    [State.GO_TO_PIXCODE_OR_BEGIN_RGB]: { bits: 1, next: State.BEGIN_RGB },
+
+    [State.PIXCODE_1]:  { bits: 0, next: State.AFTER_COLOR },
+    [State.PIXCODE_0]:  { bits: 0, next: State.AFTER_COLOR },
+    [State.PIXCODE_1B]: { bits: 1, next: State.AFTER_COLOR },
+    [State.PIXCODE_2B]: { bits: 2, next: State.AFTER_COLOR },
+    [State.PIXCODE_3B]: { bits: 3, next: State.AFTER_COLOR },
+    [State.PIXCODE_4B]: { bits: 4, next: State.AFTER_COLOR },
+
+    [State.BEGIN_RGB]: { bits: 1, next: State.SET_RED, next0: State.SET_GRAYSCALE },
     [State.SET_RED]: { bits: 5, next: State.SET_GREEN },
     [State.SET_GREEN]: { bits: 5, next: State.SET_BLUE },
-    [State.SET_BLUE]: { bits: 5, next: State.N_10 },
-    [State.RELOAD]: { bits: 1, next: State.RESET, next0: State.RELOAD },
-    [State.STRING_START]: { bits: 8, next: State.STRING_READ },
-    [State.STRING_READ]: { bits: 8, next: State.STRING_READ, next0: State.INITIAL },
+    [State.SET_BLUE]: { bits: 5, next: State.AFTER_COLOR },
+    [State.SET_GRAYSCALE]: { bits: 5, next: State.AFTER_COLOR },
+
+    [State.AFTER_COLOR]: { bits: 1, next: State.PIXEL_FILL, next0: State.PIXEL_BEGIN },
+
+    [State.PIXEL_FILL]: { bits: 1, next: State.PIXEL_FILL2, next0: State.PIXEL_FILL_1 },
+    [State.PIXEL_FILL2]:      { bits: 3, next: State.PIXEL_BEGIN }, // + PIXEL_FILL_PLUS8, PIXEL_FILL_N
+    [State.PIXEL_FILL_1]:     { bits: 0, next: State.PIXEL_BEGIN },
+    [State.PIXEL_FILL_PLUS8]: { bits: 3, next: State.PIXEL_BEGIN },
+    [State.PIXEL_FILL_N]:     { bits: 8, next: State.PIXEL_BEGIN },
+
+
+    // OTHER -> ... -> { one of the Actions below } -> BEGIN
+    [State.OTHER]: { bits: 1, next: State.SET_POSITION, next0: State.OTHER1 },
+    [State.OTHER1]: { bits: 1, next: State.OTHER2, next0: State.SET_X },
+    [State.OTHER2]: { bits: 1, next: State.OTHER3, next0: State.ADVANCE_BLOCKS },
+    [State.OTHER3]: { bits: 1, next: State.COMMAND_READ, next0: State.OTHER4 },
+    [State.OTHER4]: { bits: 1, next: State.N_27, next0: State.SET_WIDTH },
+
+    // Actions
+
+    [State.SET_X]: { bits: 1, next: State.SET_X_ABSOLUTE, next0: State.SET_X_RELATIVE },
+    [State.SET_X_RELATIVE]: { bits: 3, next: State.BEGIN },
+    [State.SET_X_ABSOLUTE]: { bits: 7, next: State.BEGIN },
+
+    [State.SET_POSITION]: { bits: 7, next: State.SET_POSITION_Y },
+    [State.SET_POSITION_Y]: { bits: 7, next: State.BEGIN },
+
+    [State.SET_WIDTH]: { bits: 7, next: State.SET_HEIGHT },
+    [State.SET_HEIGHT]: { bits: 7, next: State.SET_YCLIPPED },
+    [State.SET_YCLIPPED]: { bits: 4, next: State.BEGIN },
+
+    [State.ADVANCE_BLOCKS]: { bits: 1, next: State.ADVANCE_BLOCKS2, next0: State.ADVANCE_BLOCKS_1 },
+    [State.ADVANCE_BLOCKS2]: { bits: 1, next: State.ADVANCE_BLOCKS_N, next0: State.ADVANCE_BLOCKS_PLUS2 },
+    [State.ADVANCE_BLOCKS_1]: { bits: 0, next: State.BEGIN },
+    [State.ADVANCE_BLOCKS_N]: { bits: 7, next: State.BEGIN },
+    [State.ADVANCE_BLOCKS_PLUS2]: { bits: 3, next: State.BEGIN },
+
+    [State.N_27]: { bits: 0, next: State.BEGIN },
+
     [State.COMMAND_READ]: { bits: 8, next: State.COMMAND_MORE },
-    [State.COMMAND_MORE]: { bits: 1, next: State.COMMAND_READ, next0: State.INITIAL },
-    [State.N_47]: { bits: 4, next: State.INITIAL },
+    [State.COMMAND_MORE]: { bits: 1, next: State.COMMAND_READ, next0: State.BEGIN }, // + STRING_START, N_37
+
+    [State.STRING_START]: { bits: 8, next: State.STRING_READ },
+    [State.STRING_READ]: { bits: 8, next: State.STRING_READ, next0: State.BEGIN },
+
+
+    // Fail states
+
+    [State.PIXEL_ERROR]: { bits: 1, next: State.PIXEL_ERROR },
+    [State.DISCARD_QUEUE]: { bits: 1, next: State.RESET, next0: State.DISCARD_QUEUE },
+    [State.N_37]: { bits: 0, next: State.N_37 }, // FIXME
 }
 
 
-// Video decoder state machine
-
+/**
+ * Video decoder state machine. Process incoming bitstream and
+ * reconstructs screen blocks, etc. generating events that are
+ * dispatched to the appropriate methods.
+ * 
+ * To use this, subclass and implement all methods after
+ * the "Methods for subclasses to implement" marker at the end.
+ */
 export class DvcDecoder {
+    readonly blockWidth = 16
+    readonly blockHeight = 16 // FIXME
+
     byteCount: number // bytes processed by consumeBits
     readonly bitQueue = new BitQueue()
     dvc_zero_count: number // how many consecutive zeros we've pushed to the queue
 
+    fatal_count: number
     dvc_decoder_state: State
     dvc_next_state: State
     
+    video_detected: boolean
+    size: [number, number]
+    position: [number, number]
+    dvc_newx: number // temporary variable, rename to currentX
+
+    bitsPerColor: number
+    dvc_pixcode: number
+    dvc_last_color: number
+    currentColor: [number, number, number]
+    cache = new LRUCache()
+
     currentCommand: number[]
     currentString: { channel: MessageChannel, data: string }
 
-    public init() {
+    protected initQueue() {
         this.byteCount = 0
         this.bitQueue.clear()
         this.dvc_zero_count = 0
+    }
+
+    public init() {
+        this.initQueue()
 
         // FIXME
 
@@ -192,10 +239,10 @@ export class DvcDecoder {
         this.dvc_zero_count += dvc_right[byte]
         if (this.dvc_zero_count > 30) {
             // if (!debug_msgs || this.dvc_decoder_state != 38 || fatal_count >= 40 || fatal_count > 0) ;
-            this.dvc_decoder_state = this.dvc_next_state = State.RELOAD
+            this.dvc_decoder_state = this.dvc_next_state = State.DISCARD_QUEUE
         }
         if (byte != 0)
-        this.dvc_zero_count = dvc_left[byte]
+            this.dvc_zero_count = dvc_left[byte]
 
         while (!this.processBits());
     }
@@ -218,35 +265,38 @@ export class DvcDecoder {
         
         
         switch (this.dvc_decoder_state) {
-        case State.N_3:
-        case State.N_4:
-        case State.N_5:
-        case State.N_6:
-        case State.N_7:
-        case State.N_32:
+        case State.PIXCODE_1:
+        case State.PIXCODE_0:
+        case State.PIXCODE_1B:
+        case State.PIXCODE_2B:
+        case State.PIXCODE_3B:
+        case State.PIXCODE_4B:
             if (dvc_cc_active === 1) {
                 dvc_code = dvc_cc_usage[0]
-            } else if (this.dvc_decoder_state === State.N_4) {
+            } else if (this.dvc_decoder_state === State.PIXCODE_0) {
                 dvc_code = 0
-            } else if (this.dvc_decoder_state === State.N_3) {
+            } else if (this.dvc_decoder_state === State.PIXCODE_1) {
                 dvc_code = 1
             } else if (dvc_code !== 0) {
                 dvc_code++
             }
 
-            let dvc_color = cache_find(dvc_code)
-            if (dvc_color === -1) {
-                this.dvc_next_state = State.PIXEL_FAIL
+            this.dvc_last_color = cache_find(dvc_code)
+            if (this.dvc_last_color === -1) {
+                this.dvc_next_state = State.PIXEL_ERROR
                 break
             }
 
-            this.dvc_last_color = this.color_remap_table[dvc_color];
             this.addPixel()
             break
 
-        case State.PIXEL_FILL_PLUS2:
+        case State.PIXEL_FILL_1:
+            this.addPixel()
+            break
+
+        case State.PIXEL_FILL2:
             if (dvc_code == 7) {
-                this.dvc_next_state = State.PIXEL_FILL
+                this.dvc_next_state = State.PIXEL_FILL_N
                 break
             }
             if (dvc_code == 6) {
@@ -262,92 +312,80 @@ export class DvcDecoder {
 
         case State.PIXEL_FILL_PLUS8:
             dvc_code += 8
-            // FIXME: fallthrough
-
-        case State.PIXEL_FILL:
+        case State.PIXEL_FILL_N:
             //if (!debug_msgs || this.dvc_decoder_state != 14 || dvc_code < 16) ;
             for (let i = 0; i < dvc_code; i++) {
                 if (this.addPixel()) break;
             }
             break
 
-        case State.PIXEL_FILL1:
-            this.addPixel()
-            break
-
-        case State.N_35:
-            dvc_next_state = dvc_pixcode
+        case State.GO_TO_PIXCODE_OR_BEGIN_RGB:
+            if (dvc_code !== 0)
+                this.dvc_next_state = this.dvc_pixcode
             break
 
         case State.SET_RED:
-            dvc_red = dvc_code << this.bitsPerColor * 2
+            this.currentColor[0] = dvc_code << (8 - this.bitsPerColor)
             break
 
         case State.SET_GREEN:
-            dvc_green = dvc_code << this.bitsPerColor
+            this.currentColor[1] = dvc_code << (8 - this.bitsPerColor)
             break
 
-        case State.SET_RED_GREEN:
-            dvc_red = dvc_code << this.bitsPerColor * 2
-            dvc_green = dvc_code << this.bitsPerColor
-
+        case State.SET_GRAYSCALE:
+            this.currentColor[0] = dvc_code << (8 - this.bitsPerColor)
+            this.currentColor[1] = dvc_code << (8 - this.bitsPerColor)
         case State.SET_BLUE:
-            dvc_blue = dvc_code
-            let dvc_color = dvc_red | dvc_green | dvc_blue
-            let cacheFail = cache_lru(dvc_color);
+            this.currentColor[2] = dvc_code << (8 - this.bitsPerColor)
+
+            this.dvc_last_color = (this.currentColor[0] << 16) | (this.currentColor[1] << 8) | this.currentColor[0]
+            let cacheFail = cache_lru(this.dvc_last_color)
             if (cacheFail) {
                 // if (!debug_msgs || count_bytes > 6L) ;
-                this.dvc_next_state = State.PIXEL_FAIL
+                this.dvc_next_state = State.PIXEL_ERROR
                 break
             }
 
-            dvc_last_color = this.color_remap_table[dvc_color];
             this.addPixel()
             break
 
-        case State.N_17:
-        case State.N_26:
-            dvc_newx = dvc_code
-            if (this.dvc_decoder_state === State.N_17 && dvc_newx > dvc_size_x) {
+        case State.SET_POSITION:
+            if (dvc_code > this.size[0]) {
                 //if (debug_msgs) ;
-                dvc_newx = 0
+                dvc_code = 0
             }
+            this.dvc_newx = dvc_code
             break
 
-        case State.N_39:
-            dvc_newy = dvc_code
+        case State.SET_POSITION_Y:
+            this.size = [this.dvc_newx, dvc_code]
             if (this.blockHeight == 16)
-                dvc_newy &= 0x7F
-
-            dvc_lastx = dvc_newx
-            dvc_lasty = dvc_newy
+                this.size[1] &= 0x7F
 
             //if (dvc_lasty <= dvc_size_y || debug_msgs) ;
-            this.screen.repaint_it(1);
+            this.repaintScreen()
             break
 
-        case State.N_20:
-            dvc_code = dvc_lastx + dvc_code + 1
+        case State.SET_X_RELATIVE:
+            dvc_code += this.size[0] + 1
             //if (dvc_code <= dvc_size_x || debug_msgs) ;
-            // FIXME: fallthrough?
-
-        case State.N_21:
-            dvc_lastx = dvc_code
+        case State.SET_X_ABSOLUTE:
+            this.size[0] = dvc_code
             if (this.blockHeight == 16)
-                dvc_lastx &= 0x7F
+                this.size[0] &= 0x7F
             //if (dvc_lastx <= dvc_size_x || debug_msgs) ;
             break
 
         case State.N_27:
-            if (timeout_count == count_bytes - 1L)
-                this.dvc_next_state = State.PIXEL_FAIL
+            if (timeout_count == this.count_bytes - 1)
+                this.dvc_next_state = State.PIXEL_ERROR
 
             const nbits = this.bitQueue.nbits % 8
             if (nbits != 0)
                 dvc_code = this.bitQueue.pop(nbits)
-            timeout_count = count_bytes
+            timeout_count = this.count_bytes
 
-            this.screen.repaint_it(1);
+            this.repaintScreen()
             break
 
         case State.COMMAND_READ:
@@ -376,100 +414,94 @@ export class DvcDecoder {
         case State.RESET:
             cache_reset();
             dvc_pixel_count = 0;
-            dvc_lastx = 0;
-            dvc_lasty = 0;
-            dvc_red = 0;
-            dvc_green = 0;
-            dvc_blue = 0;
-            fatal_count = 0;
-            timeout_count = -1L;
+            this.position = [0, 0]
+            this.currentColor = [0, 0, 0]
+            this.dvc_last_color = 0 // FIXME: wasn't actually there but... shouldn't matter
+
+            this.fatal_count = 0
+            this.timeout_count = -1
 
             this.currentCommand = []
             break
 
-        case State.PIXEL_FAIL:
-            if (fatal_count === 0) {
-                debug_lastx = dvc_lastx;
-                debug_lasty = dvc_lasty;
-                debug_show_block = 1;
+        case State.PIXEL_ERROR:
+            // if (this.fatal_count === 0) {
+            //     debug_lastx = dvc_lastx;
+            //     debug_lasty = dvc_lasty;
+            //     debug_show_block = 1;
+            // }
+            if (this.fatal_count === 40) {
+                this.requestScreenRefresh()
             }
-            if (fatal_count === 40) {
-                refresh_screen()
+            if (this.fatal_count === 11680) {
+                this.requestScreenRefresh()
             }
-            if (fatal_count === 11680) {
-                refresh_screen()
+            this.fatal_count++
+            if (this.fatal_count === 120000) {
+                this.requestScreenRefresh()
             }
-            fatal_count++
-            if (fatal_count === 120000) {
-                refresh_screen()
-            }
-            if (fatal_count === 12000000) {
-                refresh_screen()
-                fatal_count = 41
+            if (this.fatal_count === 12000000) {
+                this.requestScreenRefresh()
+                this.fatal_count = 41
             }
             break
 
-        case State.N_34:
+        case State.ADVANCE_BLOCKS_1:
             next_block(1)
             break
 
-        case State.N_29:
+        case State.ADVANCE_BLOCKS_PLUS2:
             dvc_code += 2
-            break
-
-        case State.N_30:
+        case State.ADVANCE_BLOCKS_N:
             next_block(dvc_code)
             break
 
-        case State.N_40:
-            dvc_size_x = dvc_newx
-            dvc_size_y = dvc_code
+        case State.SET_WIDTH:
+            this.dvc_newx = dvc_code
             break
 
-        case State.N_47:
-            dvc_lastx = 0
-            dvc_lasty = 0
+        case State.SET_HEIGHT:
+            this.size = [this.dvc_newx, dvc_code]
+            break
+
+        case State.SET_YCLIPPED:
+            this.position = [0, 0]
             dvc_pixel_count = 0
             cache_reset()
-            this.scale_x = 1
-            this.scale_y = 1
-            this.screen_x = dvc_size_x * this.blockWidth
-            this.screen_y = dvc_size_y * 16 + dvc_code
 
             dvc_y_clipped = (dvc_code > 0) ? (256 - 16 * dvc_code) : 0
 
-            video_detected = (this.screen_x !== 0 && this.screen_y !== 0)
-            if (video_detected) {
-                this.setScreenDimensions(this.screen_x, this.screen_y)
+            this.video_detected = (this.size[0] !== 0 && this.size[1] !== 0)
+            if (this.video_detected) {
+                const width = this.size[0] * this.blockWidth
+                const height = this.size[1] * 16 + dvc_code
+                this.setScreenDimensions(width, height)
                 SetHalfHeight()
             } else {
                 this.noVideo()
-                console.log(`No video. image_source = ${this.image_source}`)
             }
             break
 
-        case State.RELOAD:
-            if (this.dvc_next_state != this.dvc_decoder_state) {
-                this.bitQueue = new BitQueue()
-                this.dvc_zero_count = 0
-            }
+        case State.DISCARD_QUEUE:
+            if (dvc_code !== 0)
+                this.initQueue()
             break
 
         case State.N_37:
             return true // FIXME
         }
 
-        
-        if (this.dvc_next_state === State.N_2 &&
-            this.dvc_pixel_count === this.blockHeight * this.blockWidth) {
+
+        if (this.dvc_next_state === State.PIXEL_BEGIN &&
+            dvc_pixel_count === this.blockHeight * this.blockWidth) {
             next_block(1)
             cache_prune()
         }
-        
+
         if (this.dvc_decoder_state === this.dvc_next_state &&
             this.dvc_decoder_state !== State.STRING_READ &&
-            this.dvc_decoder_state !== State.PIXEL_FAIL &&
-            this.dvc_decoder_state !== State.RELOAD) {
+            this.dvc_decoder_state !== State.PIXEL_ERROR &&
+            this.dvc_decoder_state !== State.DISCARD_QUEUE) {
             console.log(`Machine hung in state ${this.dvc_decoder_state}`)
             return true
         }
@@ -506,8 +538,8 @@ export class DvcDecoder {
             this.setPowerStatus(false)
 
             this.clearScreen()
-            dvc_newx = 50
-            this.dvc_next_state = State.PIXEL_FAIL
+            this.dvc_newx = 50
+            this.dvc_pixcode = State.PIXEL_ERROR
             break
 
         case ServerCommand.NO_VIDEO:
@@ -561,6 +593,23 @@ export class DvcDecoder {
         }
     }
 
+    protected setPixcodeFromEntries() {       
+        const entries = this.dvc_cc_active 
+        if (entries < 2) {
+            this.dvc_pixcode = State.PIXEL_ERROR
+        } else if (entries === 2) {
+            this.dvc_pixcode = State.PIXCODE_0
+        } else if (entries === 3) {
+            this.dvc_pixcode = State.PIXCODE_1B
+        } else if (entries < 6) {
+            this.dvc_pixcode = State.PIXCODE_2B
+        } else if (entries < 10) {
+            this.dvc_pixcode = State.PIXCODE_3B
+        } else {
+            this.dvc_pixcode = State.PIXCODE_4B
+        }
+    }
+
     protected setBitsPerColor(arg: number) {
         this.bitsPerColor = 5 - (arg & 3)
     }
@@ -568,25 +617,30 @@ export class DvcDecoder {
     protected getBitsToRead(n: number) {
         if (this.dvc_decoder_state === State.SET_RED ||
             this.dvc_decoder_state === State.SET_GREEN ||
-            this.dvc_decoder_state === State.SET_RED_GREEN ||
-            this.dvc_decoder_state === State.SET_BLUE)
+            this.dvc_decoder_state === State.SET_BLUE ||
+            this.dvc_decoder_state === State.SET_GRAYSCALE)
             return this.bitsPerColor
         return n
     }
 
     protected addPixel() {
         if (dvc_pixel_count >= this.blockHeight * this.blockWidth) {
-            this.dvc_next_state = State.PIXEL_FAIL
+            this.dvc_next_state = State.PIXEL_ERROR
             return true
         }
 
-        block[dvc_pixel_count] = dvc_last_color
+        block[dvc_pixel_count] = this.dvc_last_color
         dvc_pixel_count++
+    }
+
+    protected next_block(nblocks: number) {
+        // TODO
     }
 
 
     // Methods for subclasses to implement:
     // (keep in mind enum parameters are not validated, usually u8)
+    // (coordinates and sizes are in pixels)
 
     protected setVideoDecryption(cipher: DvcEncryption) {}
     protected setFramerate(n: number) {}
@@ -597,11 +651,12 @@ export class DvcDecoder {
     protected noVideo() {}
     protected seize() {}
     protected ping() {} // send ACK
+    protected requestScreenRefresh() {} // request server to refresh screen
 
     protected setScreenDimensions(x: number, y: number) {}
     protected clearScreen() {}
     protected repaintScreen() {}
-    protected invalidateScreen() {} // includes repaint(?)
+    protected invalidateScreen() {} // includes synchronous repaint(?)
 }
 
 // FIXME: post_complete, image_source, console.logs
