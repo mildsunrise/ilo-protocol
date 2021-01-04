@@ -1,54 +1,34 @@
-import { connect } from 'net'
-import { once } from 'events'
-import { writeFileSync } from 'fs'
 
-import { RestAPIClient } from './lib/rest'
-import { negotiateConnection, formatCommand, Command } from './lib/rc/handshake'
+import { writeFile } from 'fs/promises'
+
 import { DvcEncryption, Telnet } from './lib/rc/telnet'
 import { DvcDecoder, MessageChannel } from './lib/rc/video'
 
+/**
+ * Decodes a DVC stream on stdin, feeding it to Telnet + DvcDecoder.
+ * 
+ * Most events are printed to the console, and the reconstructed frame
+ * is written to disk at the end of the stream (as 'frame-0.raw').
+ * 
+ * This tool is invoked with the encryption key as argument, i.e.
+ * 
+ * ts-node decodeStdin dF8AA31a548213db3Ae7f3b5d8b97142 < stream
+ * 
+ * To see debug output from the state machine, set the M_DEBUG
+ * environment variable.
+ */
+
 async function main() {
-    const { address, username, password } = require('./config.json')
+    const encKeyHex = process.argv[2]
+    if (!/^[0-9a-fA-F]{32}$/.test(encKeyHex))
+        throw Error(`Invalid encryption key: ${encKeyHex}`)
+    const stream = process.stdin
+    stream.pause()
 
-    const client = new RestAPIClient(`https://${address}`)
-    await client.loginSession(username, password)
-
-    console.log(`Session key: ${client.sessionKey.toString('hex')}`)
-    const rcInfo = await client.getRcInfo()
-    console.log(`Encryption key: ${rcInfo.encKey}`)
-    console.log(`Optional features: ${Array.from(rcInfo.optionalFeatures).join(', ')}`)
-    if (rcInfo.protocolVersion !== '1.1')
-        console.warn(`Warning: Untested protocol version (${rcInfo.protocolVersion}), proceed with care`)
-
-    // Set up the console connection
-    const rcSocket = connect({ host: address, port: rcInfo.rcPort })
-    rcSocket.setNoDelay(true)
-    // code also disables SO_LINGER
-    await once(rcSocket, 'connect')
-    await negotiateConnection(false, rcSocket, client.sessionKey, rcInfo)
-    console.log('Connected to remote console.')
-
-    // Set up the command connection
-    const cmdSocket = connect({ host: address, port: rcInfo.rcPort })
-    // code also disables SO_LINGER
-    await once(cmdSocket, 'connect')
-    await negotiateConnection(true, cmdSocket, client.sessionKey, rcInfo)
-    console.log('Connected to command session.')
-
-
-    // Create the socket -> decrypter -> decoder chain
-
-    rcSocket.on('end', () => {
-        throw Error('Socket disconnected')
-    })
-    rcSocket.on('data', data => {
-        data.forEach(n => telnet.receive(n))
-    })
-
-    const encKey = Buffer.from(rcInfo.encKey, 'hex')
+    const encKey = Buffer.from(encKeyHex, 'hex')
     const telnet = new class extends Telnet {
         protected send(data: Buffer) {
-            rcSocket.write(data)
+            console.log(`Sending data: ${data.toString('hex')}`)
         }
 
         protected receiveDvc(n: number) {
@@ -84,10 +64,10 @@ async function main() {
             console.log('Connection seized (TODO)')
         }
         protected ping() {
-            telnet.sendDvc(formatCommand(Command.ACK))
+            console.log('Ping')
         }
         protected requestScreenRefresh() {
-            telnet.sendDvc(formatCommand(Command.REFRESH_SCREEN))
+            console.log('Request screen refresh')
         }
 
         protected setScreenDimensions(x: number, y: number) {
@@ -97,6 +77,7 @@ async function main() {
             canvas = new Uint32Array(canvasW * canvasH)
         }
         protected renderBlock(block: Uint32Array, x: number, y: number, width: number, height: number) {
+            //console.log(`Got block at ${x} x ${y}`)
             if (x >= canvasW || y >= canvasH)
                 throw Error()
             const scan = width
@@ -113,32 +94,40 @@ async function main() {
         }
         public repaintScreen() {
             //console.log('Repaint screen')
-            //writeFrame()
         }
         protected invalidateScreen() {
-            if (invalidateTrackTimer === undefined)
-                console.log('Screen is now being refreshed')
-            else
-                clearTimeout(invalidateTrackTimer)
-            invalidateTrackTimer = setTimeout(() => {
-                console.log('Screen no longer being refreshed')
-                invalidateTrackTimer = undefined
-            }, 350)
+            //console.log('Invalidate screen')
+            //writeFrame()
         }
     }
 
-    let invalidateTrackTimer: NodeJS.Timeout
-
     let canvasW: number, canvasH: number
     let canvas: Uint32Array
-    const getCanvasBuf = () => Buffer.from(canvas.buffer, canvas.byteOffset, canvas.byteLength)
+    let frameNum = 0
+    async function writeFrame() {
+        if (!canvas) return console.log(' (skipping)')
+        const canvasBuf = Buffer.from(canvas.buffer, canvas.byteOffset, canvas.byteLength)
+        await writeFile(`frame-${frameNum++}.raw`, canvasBuf)
+    }
 
-    setInterval(() => {
-        if (!decoder.ok || !decoder.video_detected)
-            return
-        writeFileSync('/tmp/frame.raw', getCanvasBuf())
-    }, 2000)
+    const start = Date.now()
+    decoder.debug = !!process.env.M_DEBUG
+    await consumeStream()
+    const time = Date.now() - start
+    console.log(`Stream processed in ${time}ms`)
+    await writeFrame()
 
+    async function consumeStream() {
+        for await (const data of stream) {
+            for (const b of Array.from(data as Buffer)) {
+                telnet.receive(b)
+                if (decoder.dvc_decoder_state === 38 && decoder.fatal_count > 50) {
+                    console.log('Error: Machine hung, ending')
+                    return
+                }
+            }
+        }
+    }
 }
 
 main().catch(e => process.nextTick(() => { throw e }))

@@ -1,5 +1,7 @@
 import { Cipher, createCipheriv } from 'crypto'
 
+import { truncateBuf } from '../utils'
+
 
 /**
  * Outer connection protocol.
@@ -90,17 +92,17 @@ export enum DvcEncryption {
 
 /** Initializes ciphers and calls the appropriate one */
 class DvcCipherSet {
-    static mappings: { [key: number]: string } = {
-        [DvcEncryption.RC4]: 'rc4',
-        [DvcEncryption.AES128]: 'aes-128-ofb',
-        [DvcEncryption.AES256]: 'aes-256-ofb',
+    static mappings: { [key: number]: [string, number, number] } = {
+        [DvcEncryption.RC4]: ['rc4', 16, 0],
+        [DvcEncryption.AES128]: ['aes-128-ofb', 16, 16],
+        [DvcEncryption.AES256]: ['aes-256-ofb', 32, 16],
     }
 
     readonly ciphers: { [key: number]: Cipher }
     constructor(key: Buffer) {
         this.ciphers = {}
-        for (const enc of Object.keys(DvcCipherSet.mappings))
-            this.ciphers[enc] = createCipheriv(DvcCipherSet.mappings[enc], key, '')
+        for (const [enc, [name, keySize, ivSize]] of Object.entries(DvcCipherSet.mappings))
+            this.ciphers[enc] = createCipheriv(name, truncateBuf(key, keySize), Buffer.alloc(ivSize))
     }
     process(data: Buffer, enc: DvcEncryption): Buffer {
         if (enc === DvcEncryption.NONE)

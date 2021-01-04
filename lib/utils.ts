@@ -21,6 +21,13 @@ export const getU8LeftLUT = (): number[] => [...Array(256)].map((_, x) => {
 
 export const mask = (nbits: number) => (1 << nbits) - 1
 
+/** Return a resized copy of the passed buffer, by cropping or adding zeros. */
+export function truncateBuf(buf: Uint8Array, size: number) {
+    const result = Buffer.alloc(size)
+    result.set(buf)
+    return result
+}
+
 
 // look up tables for uint8
 const reversal = getU8ReversedLUT()  // bits reversed    

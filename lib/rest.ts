@@ -42,19 +42,19 @@ export interface VirtualMediaOption {
 }
 
 export interface RemoteConsoleInfo {
-    enc_key: string,
-    enc_type: 0,
-    rc_port: number,
-    vm_key: string,
-    vm_port: number,
-    cmd_enc_key: string,
-    protocol_version: string, // '1.1'
-    optional_features: string, // separated by ';'
-    server_name: string,
-    ilo_fqdn: string,
+    encKey: string,
+    encType: 0,
+    rcPort: number,
+    vmKey: string,
+    vmPort: number,
+    cmdEncKey: string,
+    protocolVersion: string, // '1.1'
+    optionalFeatures: Set<string>,
+    serverName: string,
+    iloFqdn: string,
     blade: number,
     bay: null,
-    enclosure: null
+    enclosure: null,
 }
 
 export enum Features {
@@ -132,12 +132,51 @@ export class RestAPIClient {
         return body
     }
 
-    async getRcInfo() {
+    async getRcInfo(): Promise<RemoteConsoleInfo> {
         const response = await got(this.base + '/json/rc_info', {
             ...this._getOptions(),
             responseType: 'json',
         })
-        const body = response.body as RemoteConsoleInfo
-        return body
+        const body = response.body as any
+        if (typeof body.protocol_version !== 'string' ||
+            typeof body.optional_features !== 'string' ||
+            typeof body.enc_type !== 'number' ||
+            typeof body.enc_key !== 'string' ||
+            typeof body.vm_key !== 'string' ||
+            typeof body.cmd_enc_key !== 'string' ||
+            typeof body.rc_port !== 'number' ||
+            typeof body.vm_port !== 'number' ||
+            typeof body.server_name !== 'string' ||
+            typeof body.ilo_fqdn !== 'string' ||
+            typeof body.blade !== 'number')
+            throw Error('invalid RC info response')
+
+        if (!/^[0-9a-fA-F]{32}$/.test(body.enc_key) ||
+            !/^[0-9a-fA-F]{32}$/.test(body.vm_key) ||
+            !/^[0-9a-fA-F]{32}$/.test(body.cmd_enc_key))
+            throw Error('encryption keys not matching expected format')
+        
+        const optionalFeaturesArr: string[] = body.optional_features.split(';')
+        const optionalFeatures = new Set(optionalFeaturesArr)
+        if (optionalFeaturesArr.length !== optionalFeatures.size)
+            throw Error('duplicate features in rc response')
+
+        // FIXME: check for extra keys, maybe
+
+        return {
+            encKey: body.enc_key,
+            encType: body.enc_type,
+            rcPort: body.rc_port,
+            vmKey: body.vm_key,
+            vmPort: body.vm_port,
+            cmdEncKey: body.cmd_enc_key,
+            protocolVersion: body.protocol_version,
+            optionalFeatures,
+            serverName: body.server_name,
+            iloFqdn: body.ilo_fqdn,
+            blade: body.blade,
+            bay: body.bay,
+            enclosure: body.enclosure,
+        }
     }
 }

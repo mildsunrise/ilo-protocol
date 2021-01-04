@@ -183,6 +183,7 @@ const STATE_DATA: { [state: number]: StateData } = {
  * the "Methods for subclasses to implement" marker at the end.
  */
 export class DvcDecoder {
+    debug = false
     readonly blockWidth = 16
 
     byteCount: number // bytes processed by consumeBits
@@ -268,6 +269,7 @@ export class DvcDecoder {
         if (!Object.hasOwnProperty.call(STATE_DATA, this.dvc_decoder_state))
             throw Error(`Unknown state ${this.dvc_decoder_state}`)
         const stateData = STATE_DATA[this.dvc_decoder_state]
+        const offset = this.byteCount * 8 - this.bitQueue.nbits
         
         // Attempt to read bits
         const nbits = this.getBitsToRead(stateData.bits)
@@ -279,6 +281,11 @@ export class DvcDecoder {
         this.dvc_next_state = (dvc_code === 0 && stateData.next0 !== undefined) ?
             stateData.next0 : stateData.next
         
+        if (this.debug) {
+            let codeStr = nbits > 0 ? dvc_code.toString(2).padStart(nbits, '0') : '.'
+            const formatState = (x: State) => `${State[x]}(${x})`
+            console.log(`[debug] offset = ${Math.floor(offset/8)}.${offset % 8}, state = ${formatState(this.dvc_decoder_state)}, bits = ${codeStr}, next = ${formatState(this.dvc_next_state)}`)
+        }
         
         switch (this.dvc_decoder_state) {
         case State.PIXCODE_1:
@@ -677,11 +684,17 @@ export class DvcDecoder {
         }
     }
 
+    // Public API
+
     public process(byte: number) {
         // FIXME: why are these things initialized there
         this.consumeBits(byte)
         // FIXME: implement going out of DVC mode
         return true
+    }
+
+    public get ok() {
+        return this.dvc_decoder_state !== State.FATAL_ERROR
     }
 
 

@@ -5,10 +5,10 @@
  */
 /** */
 
-import { Duplex } from 'stream'
+import { Duplex, Readable } from 'stream'
 import { once } from 'events'
 
-import { Features, RemoteConsoleInfo } from './rest'
+import { Features, RemoteConsoleInfo } from '../rest'
 
 
 /**
@@ -41,6 +41,14 @@ export enum ServerStatus {
     NO_LICENSE         = 87, // 'W'
     NO_FREE_SESSIONS   = 88, // 'X'
     BUSY_2             = 89, // 'Y'
+}
+
+async function read(s: Readable): Promise<number> {
+    if (!s.readable)
+        throw Error('not readable')
+    if (s.readableLength <= 0)
+        await once(s, 'readable')
+    return s.read(1)[0]
 }
 
 /**
@@ -77,7 +85,7 @@ export async function negotiateConnection(cmd: boolean, socket: Duplex, sessionK
     let sessionKeyHex: Uint8Array = Buffer.from(Buffer.from(sessionKey).toString('hex'))
 
     if (optionalFeatures.has(Features.ENCRYPT_KEY)) {
-        sessionKeyHex = sessionKeyHex.map((x, i) => x ^ encKey[i % encKey.length])
+        sessionKeyHex = sessionKeyHex.map((x, i) => x ^ encKey.charCodeAt(i % encKey.length))
         command |= optionalFeatures.has(Features.ENCRYPT_VMKEY) ? 0x4000 : 0x8000
     }
 
