@@ -1,6 +1,6 @@
 import { createCipheriv } from 'crypto'
 
-import { truncateBuf } from '../utils'
+import { rc4, truncateBuf } from '../utils'
 
 
 /**
@@ -114,6 +114,9 @@ const cryptoImpl = (cipher: string, keyLen: number, ivLen: number) => (key: Buff
 }
 
 cipherImpls[DvcEncryption.NONE] = (key) => (data) => data
-cipherImpls[DvcEncryption.RC4] = cryptoImpl('rc4', 16, 0)
+cipherImpls[DvcEncryption.RC4] = (key) => {
+    const fn = rc4(key)
+    return (data) => data.map(x => x ^ fn()) as Buffer
+}
 cipherImpls[DvcEncryption.AES128] = cryptoImpl('aes-128-ofb', 16, 16)
 cipherImpls[DvcEncryption.AES256] = cryptoImpl('aes-256-ofb', 32, 16)

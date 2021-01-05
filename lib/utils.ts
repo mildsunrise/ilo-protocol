@@ -144,3 +144,19 @@ export class LRUCache {
         }
     }
 }
+
+
+export function rc4(key: Buffer) {
+    let sBox = Array.from(Array(256).keys()), i = 0, j = 0
+    for (i = 0; i < 256; i++) {
+        j = (j + sBox[i] + key[i % key.length]) & 0xFF
+        ; [ sBox[j], sBox[i] ] = [ sBox[i], sBox[j] ]
+    }
+    i = 0, j = 0
+    return () => {
+        i = (i + 1) & 0xFF
+        j = (j + sBox[i]) & 0xFF
+        ; [ sBox[j], sBox[i] ] = [ sBox[i], sBox[j] ]
+        return sBox[(sBox[i] + sBox[j]) & 0xFF]
+    }
+}
