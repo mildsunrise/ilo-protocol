@@ -1,4 +1,4 @@
-import { Cipher, createCipheriv } from 'crypto'
+import { createCipheriv } from 'crypto'
 
 import { truncateBuf } from '../utils'
 
@@ -10,8 +10,8 @@ import { truncateBuf } from '../utils'
  * This layer basically takes care of encryption / decryption.
  */
 export class Telnet {
-    protected decrypter?: DvcCipherSet
-    protected encrypter?: DvcCipherSet
+    protected key: Buffer
+    protected ciphers: { [enc: number]: [CipherFn, CipherFn] } = {}
 
     protected cipher: DvcEncryption
     protected state: {
@@ -23,18 +23,16 @@ export class Telnet {
     }
 
     constructor(key: Buffer) {
-        this.cipher = DvcEncryption.NONE
-        this.state = { dvcMode: true, encryption: false }
         if (key.length !== 16)
             throw Error('invalid key length...')
-        this.decrypter = new DvcCipherSet(key)
-        this.encrypter = new DvcCipherSet(key)
+        this.key = key
+        this.setEncryption(DvcEncryption.NONE)
     }
 
     public receive(b: number) {
         if (this.state.dvcMode === true) {
             if (this.state.encryption)
-                b = this.decrypter.process(Buffer.of(b), this.cipher)[0]
+                b = this.ciphers[this.cipher][0](Buffer.of(b))[0]
             const remainDvc = this.receiveDvc(b)
             if (!remainDvc)
                 this.state = { dvcMode: false, ctr1: 0 }
@@ -58,13 +56,24 @@ export class Telnet {
         if (this.state.dvcMode !== true)
             throw Error('not in DVC mode')
         if (this.state.encryption)
-            data = this.encrypter.process(data, this.cipher)
+            data = this.ciphers[this.cipher][1](data)
         this.send(data)
     }
 
     public setEncryption(enc: DvcEncryption) {
+        this.initializeCipherInstances(enc)
         this.cipher = enc
         this.state = { dvcMode: true, encryption: enc !== DvcEncryption.NONE }
+    }
+
+    public initializeCipherInstances(enc: DvcEncryption) {
+        if (Object.hasOwnProperty.call(this.ciphers, enc))
+            return  // already initialized, nothing to do
+        if (!Object.hasOwnProperty.call(cipherImpls, enc))
+            throw Error(`Cipher ${enc} unknown or not supported`)
+        const decrypter = cipherImpls[enc](this.key)
+        const encrypter = cipherImpls[enc](this.key)
+        this.ciphers[enc] = [ decrypter, encrypter ]
     }
 
 
@@ -90,28 +99,21 @@ export enum DvcEncryption {
     AES256,
 }
 
-/** Initializes ciphers and calls the appropriate one */
-class DvcCipherSet {
-    static mappings: { [key: number]: [string, number, number] } = {
-        [DvcEncryption.RC4]: ['rc4', 16, 0],
-        [DvcEncryption.AES128]: ['aes-128-ofb', 16, 16],
-        [DvcEncryption.AES256]: ['aes-256-ofb', 32, 16],
-    }
+type CipherFn = (data: Buffer) => Buffer
+const cipherImpls: { [enc: number]: (key: Buffer) => CipherFn } = {}
 
-    readonly ciphers: { [key: number]: Cipher }
-    constructor(key: Buffer) {
-        this.ciphers = {}
-        for (const [enc, [name, keySize, ivSize]] of Object.entries(DvcCipherSet.mappings))
-            this.ciphers[enc] = createCipheriv(name, truncateBuf(key, keySize), Buffer.alloc(ivSize))
-    }
-    process(data: Buffer, enc: DvcEncryption): Buffer {
-        if (enc === DvcEncryption.NONE)
-            return data
-        if (!Object.hasOwnProperty.call(this.ciphers, enc))
-            throw Error(`Invalid or unsupported encryption ${enc}`)
-        const odata = this.ciphers[enc].update(data)
+const cryptoImpl = (cipher: string, keyLen: number, ivLen: number) => (key: Buffer) => {
+    key = truncateBuf(key, keyLen)
+    const cipherObj = createCipheriv(cipher, key, Buffer.alloc(ivLen))
+    return (data: Buffer) => {
+        const odata = cipherObj.update(data)
         if (odata.length !== data.length)
             throw Error(`Unexpected returned length (expected ${data.length}, got ${odata.length})`)
         return odata
     }
 }
+
+cipherImpls[DvcEncryption.NONE] = (key) => (data) => data
+cipherImpls[DvcEncryption.RC4] = cryptoImpl('rc4', 16, 0)
+cipherImpls[DvcEncryption.AES128] = cryptoImpl('aes-128-ofb', 16, 16)
+cipherImpls[DvcEncryption.AES256] = cryptoImpl('aes-256-ofb', 32, 16)
