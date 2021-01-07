@@ -61,6 +61,10 @@ async function read(s: Readable): Promise<number> {
  * called. It must return a promise resolving to either `'seize'`,
  * `'share'`, or anything else (throws error).
  * 
+ * Warning: I'm not sure iLO actually validates the key anymore,
+ * it returns OK even when the encKey is wrong, then of course
+ * decryption yields gibberish and the decoder fails.
+ * 
  * @param cmd `true` if negotiating a command connection, `false` if negotiating a remote console connection.
  * @param socket recently-opened socket (or duplex stream)
  * @param sessionKey 
