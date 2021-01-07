@@ -1,11 +1,33 @@
 import { connect } from 'net'
 import { once } from 'events'
-import { writeFileSync } from 'fs'
 
 import { RestAPIClient } from './lib/rest'
-import { negotiateConnection, formatCommand, Command } from './lib/rc/handshake'
+import { negotiateConnection } from './lib/rc/handshake'
 import { DvcEncryption, Telnet } from './lib/rc/telnet'
 import { DvcDecoder, MessageChannel } from './lib/rc/video'
+import { Command, formatCommand, formatKeyboardCommand, powerStatusCommands } from './lib/rc/command'
+
+const gi = require('node-gtk')
+const Gtk = gi.require('Gtk', '3.0')
+const Gdk = gi.require('Gdk', '3.0')
+const Cairo = gi.require('cairo', '2.0')
+
+gi.startLoop()
+Gtk.init()
+
+// Based on "usb_kbd_keycode" from drivers/hid/usbhid/usbkbd.c @ 1a59d1b
+// FIXME: does 43 map to 49 or 50?
+const LINUX_KEYCODE_TO_HID = { 30: 4, 48: 5, 46: 6, 32: 7, 18: 8, 33: 9, 34: 10, 35: 11, 23: 12, 36: 13, 37: 14, 38: 15, 50: 16, 49: 17, 24: 18, 25: 19, 16: 20, 19: 21, 31: 22, 20: 23, 22: 24, 47: 25, 17: 26, 45: 27, 21: 28, 44: 29, 2: 30, 3: 31, 4: 32, 5: 33, 6: 34, 7: 35, 8: 36, 9: 37, 10: 38, 11: 39, 28: 40, 1: 41, 14: 42, 15: 43, 57: 44, 12: 45, 13: 46, 26: 47, 27: 48, 43: 49, 39: 51, 40: 52, 41: 53, 51: 54, 52: 55, 53: 56, 58: 57, 59: 58, 60: 59, 61: 60, 62: 61, 63: 62, 64: 63, 65: 64, 66: 65, 67: 66, 68: 67, 87: 68, 88: 69, 99: 70, 70: 71, 119: 72, 110: 73, 102: 74, 104: 75, 111: 76, 107: 77, 109: 78, 106: 79, 105: 80, 108: 81, 103: 82, 69: 83, 98: 84, 55: 85, 74: 86, 78: 87, 96: 88, 79: 89, 80: 90, 81: 91, 75: 92, 76: 93, 77: 94, 71: 95, 72: 96, 73: 97, 82: 98, 83: 99, 86: 100, 127: 101, 116: 102, 117: 103, 183: 104, 184: 105, 185: 106, 186: 107, 187: 108, 188: 109, 189: 110, 190: 111, 191: 112, 192: 113, 193: 114, 194: 115, 134: 116, 138: 117, 130: 118, 132: 119, 128: 120, 129: 121, 131: 122, 137: 123, 133: 124, 135: 125, 136: 126, 113: 127, 115: 128, 114: 129, 121: 133, 89: 135, 93: 136, 124: 137, 92: 138, 94: 139, 95: 140, 122: 144, 123: 145, 90: 146, 91: 147, 85: 148, 29: 224, 42: 225, 56: 226, 125: 227, 97: 228, 54: 229, 100: 230, 126: 231, 164: 232, 166: 233, 165: 234, 163: 235, 161: 236, 150: 240, 158: 241, 159: 242, 177: 245, 178: 246, 176: 247, 142: 248, 152: 249, 173: 250, 140: 251 }
+
+function mapGdkKeycodeToHid(n: number) {
+    // we'll assume this is an X11 keycode (FIXME),
+    // then we can supposedly get the Linux keycode by subtracting 8
+    n -= 8
+    // we'll then map this to HID keycode
+    if (!Object.hasOwnProperty.call(LINUX_KEYCODE_TO_HID, n))
+        return
+    return LINUX_KEYCODE_TO_HID[n]
+}
 
 async function main() {
     const { address, username, password } = require('./config.json')
@@ -39,7 +61,8 @@ async function main() {
     // Create the socket -> decrypter -> decoder chain
 
     rcSocket.on('end', () => {
-        throw Error('Socket disconnected')
+        if (!quitting)
+            throw Error('Socket disconnected')
     })
     rcSocket.on('data', data => {
         data.forEach(n => telnet.receive(n))
@@ -79,6 +102,7 @@ async function main() {
 
         protected noVideo() {
             console.log('No video')
+            surface = surfaceCr = blockImage = undefined
         }
         protected seize() {
             console.log('Connection seized (TODO)')
@@ -92,28 +116,25 @@ async function main() {
 
         protected setScreenDimensions(x: number, y: number) {
             console.log(`Screen dimensions: ${x} x ${y}`)
-            canvasW = x
-            canvasH = y
-            canvas = new Uint32Array(canvasW * canvasH)
+            surface = win.window.createSimilarSurface(Cairo.Content.COLOR, x, y)
+            surfaceCr = new Cairo.Context(surface)
+            surfaceCr.setSourceRgb(0, 0, 0)
+            surfaceCr.paint()
+            drawingArea.setSizeRequest(x, y)
+            blockImage = Cairo.ImageSurface.createForData(decoder.block, Cairo.Format.RGB24, decoder.blockWidth, decoder.blockHeight, decoder.blockWidth*4)
         }
         protected renderBlock(block: Uint32Array, x: number, y: number, width: number, height: number) {
-            if (x >= canvasW || y >= canvasH)
-                throw Error()
-            const scan = width
-            width = Math.min(canvasW - x, width)
-            height = Math.min(canvasH - y, height)
-            for (let blockOffset = 0, canvasOffset = y * canvasW + x;
-                blockOffset < block.length;
-                blockOffset += scan, canvasOffset += canvasW) {
-                canvas.set(block.subarray(blockOffset, blockOffset + width), canvasOffset)
-            }
+            if (!surface)
+                return console.error('painting before setting screen dimensions')
+            surfaceCr.setSourceSurface(blockImage, x, y)
+            surfaceCr.paint()
+            drawingArea.queueDrawArea(x, y, width, height)
         }
         protected clearScreen() {
             console.log('Clear screen')
         }
         public repaintScreen() {
             //console.log('Repaint screen')
-            //writeFrame()
         }
         protected invalidateScreen() {
             if (invalidateTrackTimer === undefined)
@@ -129,15 +150,91 @@ async function main() {
 
     let invalidateTrackTimer: NodeJS.Timeout
 
-    let canvasW: number, canvasH: number
-    let canvas: Uint32Array
-    const getCanvasBuf = () => Buffer.from(canvas.buffer, canvas.byteOffset, canvas.byteLength)
 
-    setInterval(() => {
-        if (!decoder.ok || !decoder.video_detected)
+    // UI
+
+    let quitting = false
+    let surface, surfaceCr, blockImage
+
+    const drawingArea = new Gtk.DrawingArea()
+    // FIXME: drawingArea.on('configure-event', () => {})
+    drawingArea.on('draw', (cr) => {
+        if (!surface)
             return
-        writeFileSync('/tmp/frame.raw', getCanvasBuf())
-    }, 2000)
+        cr.setSourceSurface(surface, 0, 0)
+        cr.paint()
+    })
+
+    drawingArea.canFocus = true
+    drawingArea.sensitive = true
+    drawingArea.addEvents(0
+        | Gdk.EventMask.KEY_PRESS_MASK
+        | Gdk.EventMask.KEY_RELEASE_MASK
+        | Gdk.EventMask.BUTTON_MOTION_MASK
+    )
+    drawingArea.on('key-press-event', keyHandler)
+    drawingArea.on('key-release-event', keyHandler)
+    const keysPressed = new Set<number>()
+    function keyHandler(event) {
+        const pressed = event.type === Gdk.EventType.KEY_PRESS
+        const hidCode = mapGdkKeycodeToHid(event.hardwareKeycode)
+        if (hidCode !== undefined) {
+            keysPressed.delete(hidCode)
+            pressed && keysPressed.add(hidCode)
+            sendKeys()
+        }
+        return true // we consumed the event
+    }
+    function sendKeys() {
+        // We reverse the array because we want the last pressed keys
+        // first, so that formatKeyboardCommand will preserve them
+        const hidCodes = Array.from(keysPressed).reverse()
+        telnet.sendDvc(formatKeyboardCommand(hidCodes))
+    }
+
+    const frame = new Gtk.Frame()
+    frame.shadowType = Gtk.ShadowType.IN
+    frame.add(drawingArea)
+
+    const buttonsBox = new Gtk.Box()
+    buttonsBox.orientation = Gtk.Orientation.HORIZONTAL
+    buttonsBox.spacing = 8
+    const cmds = powerStatusCommands
+    const btnData: [Buffer, string][] = [
+        [cmds.MOMENTARY_PRESS, 'momentary press'],
+        [cmds.PRESS_AND_HOLD, 'press and hold'],
+        [cmds.POWER_CYCLE, 'power cycle'],
+        [cmds.SYSTEM_RESET, 'system reset'],
+    ]
+    for (const [ data, label ] of btnData) {
+        const btn = new Gtk.Button()
+        btn.label = label
+        btn.on('clicked', () => telnet.sendDvc(data))
+        buttonsBox.packStart(btn, false, true, 0)
+    }
+
+    const mainBox = new Gtk.Box()
+    mainBox.orientation = Gtk.Orientation.VERTICAL
+    mainBox.spacing = 8
+    mainBox.packStart(frame, true, true, 0)
+    mainBox.packStart(buttonsBox, false, true, 0)
+
+    const win = new Gtk.Window()
+    win.title = 'Console viewer'
+    win.add(mainBox)
+    win.borderWidth = 8
+    win.on('destroy', () => {
+        quitting = true
+        Gtk.mainQuit()
+        rcSocket.end()
+        cmdSocket.end()
+        if (invalidateTrackTimer)
+            clearTimeout(invalidateTrackTimer)
+    })
+    win.on('delete-event', () => false)
+
+    win.showAll()
+    Gtk.main()
 
 }
 
