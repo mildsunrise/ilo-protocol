@@ -2,7 +2,7 @@ import { Duplex, Readable } from 'stream'
 import { once } from 'events'
 
 import { Features, RemoteConsoleInfo } from '../rest'
-import { formatCommand } from '../rc/handshake'
+import { formatCommand } from '../rc/command'
 
 export enum DeviceType {
     FLOPPY = 1,

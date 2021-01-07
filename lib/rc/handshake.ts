@@ -9,28 +9,8 @@ import { Duplex, Readable } from 'stream'
 import { once } from 'events'
 
 import { Features, RemoteConsoleInfo } from '../rest'
+import { Command, formatCommand } from './command'
 
-
-/**
- * Commands sent to server are a 16-bit LE followed by optional arguments
- * The 8 upper bits seem to have flags; the 8 lower bits seem to be
- * an ASCII character defining command
- */
-export function formatCommand(command: number, args?: Uint8Array) {
-    const buf = Buffer.alloc(2)
-    buf.writeUInt16LE(command, 0)
-    return args ? Buffer.concat([buf, args]) : buf
-}
-
-export enum Command {
-    RC_CONNECT = 0x2001,
-    CMD_CONNECT = 0x2002,
-    SEIZE_CONNECTION = 0x0055,
-    SHARE_CONNECTION = 0x0056,
-
-    REFRESH_SCREEN = 0x0005,
-    ACK = 0x000c,
-}
 
 export enum ServerStatus {
     HELLO              = 80, // 'P'
