@@ -147,12 +147,12 @@
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   protected int read_command(byte[] paramArrayOfbyte, int paramInt) throws IOException {
+/*     */   protected int read_command(byte[] buf, int paramInt) throws IOException {
 /* 151 */     int i = 0;
 /*     */     while (true) {
 /*     */       try {
 /* 154 */         this.sock.setSoTimeout(1000);
-/* 155 */         i = this.in.read(paramArrayOfbyte, 0, paramInt);
+/* 155 */         i = this.in.read(buf, 0, paramInt);
 /*     */       } catch (InterruptedIOException interruptedIOException) {
 /* 157 */         this.reply.keepalive(true);
 /* 158 */         D.println(3, "Sending keepalive");
@@ -163,8 +163,8 @@
 /*     */           break; 
 /*     */         continue;
 /*     */       } 
-/* 166 */       if ((paramArrayOfbyte[0] & 0xFF) == 254) {
-/* 167 */         this.reply.sendsynch(this.out, paramArrayOfbyte);
+/* 166 */       if ((buf[0] & 0xFF) == 254) {
+/* 167 */         this.reply.sendsynch(this.out, buf);
 /* 168 */         this.out.flush();
 /*     */         continue;
 /*     */       } 

@@ -38,17 +38,17 @@
 /*     */   boolean changing_disks;
 /*     */   VMD5 digest;
 /*     */   
-/*     */   public Connection(String paramString1, int paramInt1, int paramInt2, String paramString2, int paramInt3, byte[] paramArrayOfbyte1, byte[] paramArrayOfbyte2, virtdevs paramvirtdevs) throws IOException {
-/*  42 */     this.host = paramString1;
-/*  43 */     this.port = paramInt1;
-/*  44 */     this.device = paramInt2;
-/*  45 */     this.target = paramString2;
-/*  46 */     this.pre = paramArrayOfbyte1;
-/*  47 */     this.key = paramArrayOfbyte2;
-/*  48 */     this.v = paramvirtdevs;
+/*     */   public Connection(String host, int port, int device, String target, int paramInt3, byte[] pre, byte[] key, virtdevs app) throws IOException {
+/*  42 */     this.host = host;
+/*  43 */     this.port = port;
+/*  44 */     this.device = device;
+/*  45 */     this.target = target;
+/*  46 */     this.pre = pre;
+/*  47 */     this.key = key;
+/*  48 */     this.v = app;
 /*     */     
 /*  50 */     MediaAccess mediaAccess = new MediaAccess();
-/*  51 */     int i = mediaAccess.devtype(paramString2);
+/*  51 */     int i = mediaAccess.devtype(target);
 /*  52 */     if (i == 2 || i == 5) {
 /*  53 */       this.targetIsDevice = 1;
 /*  54 */       D.println(0, "Got CD or removable connection\n");
@@ -57,7 +57,7 @@
 /*  57 */       D.println(0, "Got NO CD or removable connection\n");
 /*     */     } 
 /*     */     
-/*  60 */     int j = mediaAccess.open(paramString2, this.targetIsDevice);
+/*  60 */     int j = mediaAccess.open(target, this.targetIsDevice);
 /*  61 */     long l = mediaAccess.size();
 /*  62 */     mediaAccess.close();
 /*     */     
@@ -69,7 +69,7 @@
 /*     */ 
 /*     */   
 /*     */   public int connect() throws UnknownHostException, IOException {
-/*  72 */     byte[] arrayOfByte = { 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+/*  72 */     byte[] buf = { 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 /*     */ 
 /*     */ 
 /*     */     
@@ -89,37 +89,30 @@
 /*  89 */     this.digest.update(this.pre);
 /*  90 */     this.digest.update(this.key);
 /*     */     
-/*  92 */     System.arraycopy(this.key, 0, arrayOfByte, 2, this.key.length);
+/*  92 */     System.arraycopy(this.key, 0, buf, 2, this.key.length);
 /*     */     
-/*  94 */     arrayOfByte[1] = (byte)this.device;
-/*  95 */     if (this.targetIsDevice == 0)
-/*     */     {
-/*     */ 
-/*     */       
-/*  99 */       arrayOfByte[1] = (byte)(arrayOfByte[1] | Byte.MIN_VALUE);
+/*  94 */     buf[1] = (byte)this.device;
+/*  95 */     if (this.targetIsDevice == 0) {
+/*  99 */       buf[1] = (byte)(buf[1] | Byte.MIN_VALUE);
 /*     */     }
-/* 101 */     this.out.write(arrayOfByte);
+/* 101 */     this.out.write(buf);
 /* 102 */     this.out.flush();
 /*     */     
-/* 104 */     this.in.read(arrayOfByte, 0, 4);
-/* 105 */     D.println(3, "Hello response0: " + D.hex(arrayOfByte[0], 2));
-/* 106 */     D.println(3, "Hello response1: " + D.hex(arrayOfByte[1], 2));
+/* 104 */     this.in.read(buf, 0, 4);
+/* 105 */     D.println(3, "Hello response0: " + D.hex(buf[0], 2));
+/* 106 */     D.println(3, "Hello response1: " + D.hex(buf[1], 2));
 /*     */ 
 /*     */ 
 /*     */     
-/* 110 */     if (arrayOfByte[0] == 32 && arrayOfByte[1] == 0) {
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */       
-/* 115 */       D.println(1, "Connected.  Protocol version = " + (arrayOfByte[3] & 0xFF) + "." + (arrayOfByte[2] & 0xFF));
+/* 110 */     if (buf[0] == 32 && buf[1] == 0) {
+/* 115 */       D.println(1, "Connected.  Protocol version = " + (buf[3] & 0xFF) + "." + (buf[2] & 0xFF));
 /*     */     } else {
 /* 117 */       D.println(0, "Unexpected Hello Response!");
 /* 118 */       this.s.close();
 /* 119 */       this.s = null;
 /* 120 */       this.in = null;
 /* 121 */       this.out = null;
-/* 122 */       return arrayOfByte[0];
+/* 122 */       return buf[0];
 /*     */     } 
 /* 124 */     return 0;
 /*     */   }

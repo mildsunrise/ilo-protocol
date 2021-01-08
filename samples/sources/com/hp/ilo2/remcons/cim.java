@@ -324,7 +324,7 @@ public class cim
     this.mouse_sync.sync();
   }
   
-  public void serverMove(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
+  public void serverMove(int paramInt1, int paramInt2, int xcoord, int ycoord) {
     if (paramInt1 < -128) {
       paramInt1 = -128;
     }
@@ -340,29 +340,28 @@ public class cim
     this.UI_dirty = true;
     
     if (this.screen_x > 0 && this.screen_y > 0) {
-      paramInt3 = 3000 * paramInt3 / this.screen_x;
-      paramInt4 = 3000 * paramInt4 / this.screen_y;
+      xcoord = 3000 * xcoord / this.screen_x;
+      ycoord = 3000 * ycoord / this.screen_y;
     } else {
-      paramInt3 = 3000 * paramInt3 / 1;
-      paramInt4 = 3000 * paramInt4 / 1;
+      xcoord = 3000 * xcoord / 1;
+      ycoord = 3000 * ycoord / 1;
     } 
 
-    byte[] arrayOfByte = new byte[10];
+    byte[] buf = new byte[10];
     
-    arrayOfByte[0] = 2;
-    arrayOfByte[1] = 0;
-    arrayOfByte[2] = (byte)(paramInt3 & 0xFF);
-    arrayOfByte[3] = (byte)(paramInt3 >> 8);
-    arrayOfByte[4] = (byte)(paramInt4 & 0xFF);
-    arrayOfByte[5] = (byte)(paramInt4 >> 8);
-    arrayOfByte[6] = 0;
-    arrayOfByte[7] = 0;
+    buf[0] = 2;
+    buf[1] = 0;
+    buf[2] = (byte)(xcoord & 0xFF);
+    buf[3] = (byte)(xcoord >> 8);
+    buf[4] = (byte)(ycoord & 0xFF);
+    buf[5] = (byte)(ycoord >> 8);
+    buf[6] = 0;
+    buf[7] = 0;
 
-    arrayOfByte[8] = this.mouseBtnState;
-    arrayOfByte[9] = 0;
+    buf[8] = this.mouseBtnState;
+    buf[9] = 0;
     
-    String str = new String(arrayOfByte);
-
+    String str = new String(buf);
     transmit(str);
   }
 
@@ -1007,7 +1006,7 @@ public class cim
     byte[] arrayOfByte = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     
     arrayOfByte[2] = 5;
-    arrayOfByte[4] = 76;
+    arrayOfByte[4] = 0x4c;
     String str1 = new String(arrayOfByte);
     transmit(str1);
     
@@ -1110,11 +1109,11 @@ public class cim
     requestFocus();
   }
   
-  public void send_ctrl_alt_fn(int paramInt) {
+  public void send_ctrl_alt_fn(int fnIndex) {
     byte[] arrayOfByte = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
     byte b = 0;
 
-    switch (paramInt + 1) {
+    switch (fnIndex + 1) {
       case 1:
         b = 58;
         break;
@@ -1382,98 +1381,78 @@ public class cim
     dvc_cc_active = 0;
   }
 
-  final boolean cache_lru(int paramInt) {
-    int j = dvc_cc_active;
-    int i = 0;
+  final boolean cache_lru(int color) {
+    int index = 0;
     boolean found = false;
     
-    byte b;
-    
-    for (b = 0; b < j; b++) {
-      if (paramInt == dvc_cc_color[b]) {
-        i = b;
+    for (byte b = 0; b < dvc_cc_active; b++) {
+      if (dvc_cc_color[b] == color) {
+        index = b;
         found = true;
         break;
       } 
-      if (dvc_cc_usage[b] == j - 1) {
-        i = b;
+      if (dvc_cc_usage[b] == dvc_cc_active - 1) {
+        index = b;
       }
     } 
     
-    int k = dvc_cc_usage[i];
+    int k = dvc_cc_usage[index];
     
     if (!found) {
-      if (j < 17) {
-        i = j;
-        k = j;
-        dvc_cc_active = ++j;
+      if (dvc_cc_active < 17) {
+        index = dvc_cc_active;
+        k = dvc_cc_active;
+        dvc_cc_active++;
         
-        if (dvc_cc_active < 2) {
-          dvc_pixcode = 38;
-        } else if (dvc_cc_active == 2) {
-          dvc_pixcode = 4;
-        } else if (dvc_cc_active == 3) {
-          dvc_pixcode = 5;
-        } else if (dvc_cc_active < 6) {
-          dvc_pixcode = 6;
-        } else if (dvc_cc_active < 10) {
-          dvc_pixcode = 7;
-        } else {
-          dvc_pixcode = 32;
-        }
-        next_1[31] = dvc_pixcode;
+        setPixcodeFromEntries();
       }
-      dvc_cc_color[i] = paramInt;
+      dvc_cc_color[index] = color;
     } 
     
-    dvc_cc_block[i] = 1;
+    dvc_cc_block[index] = 1;
     
-    for (b = 0; b < j; b++) {
-      if (dvc_cc_usage[b] < k) {
-        dvc_cc_usage[b] = dvc_cc_usage[b] + 1;
-      }
-    } 
-    dvc_cc_usage[i] = 0;
+    for (byte b = 0; b < dvc_cc_active; b++) {
+      if (dvc_cc_usage[b] < k)
+        dvc_cc_usage[b]++;
+    }
+    dvc_cc_usage[index] = 0;
     return found;
   }
   
-  final int cache_find(int paramInt) {
-    int i = dvc_cc_active;
-    
-    for (byte b = 0; b < i; b++) {
-      if (paramInt == dvc_cc_usage[b]) {
-        
-        int j = dvc_cc_color[b];
-        byte b1 = b;
-        
-        for (b = 0; b < i; b++) {
-          if (dvc_cc_usage[b] < paramInt)
-            dvc_cc_usage[b] = dvc_cc_usage[b] + 1;
+  final int cache_find(int usage) {
+    for (byte b = 0; b < dvc_cc_active; b++) {
+      if (dvc_cc_usage[b] == usage) {
+        for (byte b1 = 0; b1 < dvc_cc_active; b1++) {
+          if (dvc_cc_usage[b1] < usage)
+            dvc_cc_usage[b1] = dvc_cc_usage[b1] + 1;
         } 
-        dvc_cc_usage[b1] = 0;
-        dvc_cc_block[b1] = 1;
-        return j;
+        dvc_cc_usage[b] = 0;
+        dvc_cc_block[b] = 1;
+        return dvc_cc_color[b];
       }
     } 
     return -1;
   }
 
   final void cache_prune() {
-    int _cc_active = dvc_cc_active;
-
-    for (byte b = 0; b < _cc_active; ) {
-      if (dvc_cc_block[b] == 0) {
-        _cc_active--;
-        dvc_cc_block[b] = dvc_cc_block[_cc_active];
-        dvc_cc_color[b] = dvc_cc_color[_cc_active];
-        dvc_cc_usage[b] = dvc_cc_usage[_cc_active];
-        continue;
-      } 
-      dvc_cc_block[b] = dvc_cc_block[b] - 1;
-      b++;
+    // block 0 is being removed, block 1 now points to block 0, etc.
+    for (byte b = 0; b < dvc_cc_active; ) {
+      if (dvc_cc_block[b] == 0) { // remove this item (swap with last, remove last)
+        dvc_cc_active--;
+        dvc_cc_block[b] = dvc_cc_block[dvc_cc_active];
+        dvc_cc_color[b] = dvc_cc_color[dvc_cc_active];
+        dvc_cc_usage[b] = dvc_cc_usage[dvc_cc_active];
+      } else {
+        dvc_cc_block[b]--;
+        b++;
+      }
     } 
     
-    dvc_cc_active = _cc_active;
+    // set dvc_pixcode according to how many cache entries are left
+    setPixcodeFromEntries();
+  }
+
+  protected void setPixcodeFromEntries() {
     if (dvc_cc_active < 2) {
       dvc_pixcode = 38;
     } else if (dvc_cc_active == 2) {
@@ -1818,7 +1797,7 @@ public class cim
                 
                 this.screen.clearScreen();
                 dvc_newx = 50;
-                dvc_code = 38; // FIXME: possible bug, they meant dvc_next_state
+                dvc_code = 38; // FIXME: possible bug, they meant dvc_pixcode or dvc_next_state
                 break;
 
               case 6:
@@ -2036,7 +2015,7 @@ public class cim
   
   boolean process_dvc(char input) {
     if (dvc_reversal[255] == 0) {
-      System.out.println("dvc initializing");
+      System.out.println("dvc initializing"); // FIXME: why is this initialized here?
       
       init_reversal();
       cache_reset();
@@ -2201,8 +2180,7 @@ public class cim
       
       }
     
-    }
-    else if (16 != this.blockHeight) {
+    } else if (this.blockHeight != 16) {
       System.out.println("Setting non-halfheight mode");
       this.blockHeight = 16;
       bits_to_read[21] = 7;
@@ -2324,13 +2302,12 @@ public class cim
 
   public byte getMouseButtonState(MouseEvent paramMouseEvent) {
     byte b = 0;
-    if ((paramMouseEvent.getModifiersEx() & 0x1000) != 0)
+    if ((paramMouseEvent.getModifiersEx() & MouseEvent.BUTTON3_DOWN_MASK) != 0)
       b = (byte)(b | 0x2); 
-    if ((paramMouseEvent.getModifiersEx() & 0x800) != 0)
+    if ((paramMouseEvent.getModifiersEx() & MouseEvent.BUTTON2_DOWN_MASK) != 0)
       b = (byte)(b | 0x4); 
-    if ((paramMouseEvent.getModifiersEx() & 0x400) != 0) {
+    if ((paramMouseEvent.getModifiersEx() & MouseEvent.BUTTON1_DOWN_MASK) != 0)
       b = (byte)(b | 0x1);
-    }
     
     return b;
   }
@@ -2340,24 +2317,20 @@ public class cim
     Point point2 = new Point(0, 0);
     
     point1 = getAbsMouseCoordinates(paramMouseEvent);
-    char c1 = (char)point1.x;
-    char c2 = (char)point1.y;
+    char mx = (char)point1.x;
+    char my = (char)point1.y;
     
     if ((paramMouseEvent.getModifiersEx() & 0x80) > 0) {
-
-
+      this.mousePrevPosn.x = mx;
+      this.mousePrevPosn.y = my;
+    } else if (mx <= this.screen_x && my <= this.screen_y) {
       
-      this.mousePrevPosn.x = c1;
-      this.mousePrevPosn.y = c2;
-    }
-    else if (c1 <= this.screen_x && c2 <= this.screen_y) {
-      
-      point2.x = c1 - this.mousePrevPosn.x;
-      this.mousePrevPosn.y -= c2;
+      point2.x = mx - this.mousePrevPosn.x;
+      this.mousePrevPosn.y -= my;
 
       
-      this.mousePrevPosn.x = c1;
-      this.mousePrevPosn.y = c2;
+      this.mousePrevPosn.x = mx;
+      this.mousePrevPosn.y = my;
       
       int i = point2.x;
       int j = point2.y;
@@ -2378,12 +2351,12 @@ public class cim
       this.UI_dirty = true;
       
       if (this.screen_x > 0 && this.screen_y > 0) {
-        c1 = (char)(3000 * c1 / this.screen_x);
-        c2 = (char)(3000 * c2 / this.screen_y);
+        mx = (char)(3000 * mx / this.screen_x);
+        my = (char)(3000 * my / this.screen_y);
       } else {
         
-        c1 = (char)(3000 * c1 / 1);
-        c2 = (char)(3000 * c2 / 1);
+        mx = (char)(3000 * mx / 1);
+        my = (char)(3000 * my / 1);
       } 
 
       
@@ -2391,10 +2364,10 @@ public class cim
       
       arrayOfByte[0] = 2;
       arrayOfByte[1] = 0;
-      arrayOfByte[2] = (byte)(c1 & 0xFF);
-      arrayOfByte[3] = (byte)(c1 >> 8);
-      arrayOfByte[4] = (byte)(c2 & 0xFF);
-      arrayOfByte[5] = (byte)(c2 >> 8);
+      arrayOfByte[2] = (byte)(mx & 0xFF);
+      arrayOfByte[3] = (byte)(mx >> 8);
+      arrayOfByte[4] = (byte)(my & 0xFF);
+      arrayOfByte[5] = (byte)(my >> 8);
       
       if (i < 0) {
         arrayOfByte[6] = (byte)(i & 0xFF);
@@ -2419,17 +2392,9 @@ public class cim
     } 
   }
 
-
-
-
-
-
-  
   private Point getAbsMouseCoordinates(MouseEvent paramMouseEvent) {
     Point point = new Point();
-    
     point.y = paramMouseEvent.getY();
-    
     point.x = paramMouseEvent.getX();
     return point;
   }

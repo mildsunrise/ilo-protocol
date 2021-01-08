@@ -5,58 +5,11 @@
 /*     */ import java.util.Locale;
 /*     */ 
 /*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ 
-/*     */ class LocaleTranslator
-/*     */ {
-/*     */   Hashtable locales;
-/*     */   Hashtable aliases;
-/*     */   Hashtable selected;
-/*     */   Hashtable reverse_alias;
+/*     */ class LocaleTranslator {
+/*     */   Hashtable<String, Hashtable<Character, String>> locales;
+/*     */   Hashtable<String, String> aliases;
+/*     */   Hashtable<Character, String> selected;
+/*     */   Hashtable<String, String> reverse_alias;
 /*     */   public boolean showgui = false;
 /*     */   public boolean windows = true;
 /*     */   String selected_name;
@@ -130,71 +83,68 @@
 /*     */ 
 /*     */ 
 /*     */   
-/*     */   void parse_locale_str(String paramString, Hashtable paramHashtable) {
-/* 134 */     byte b2 = 0;
+/*     */   void parse_locale_str(String localeStr, Hashtable<Character, String> localeTable) {
+/* 134 */     boolean constructing = false;
 /* 135 */     char c = Character.MIN_VALUE;
 /* 136 */     Character character = null;
 /* 137 */     StringBuffer stringBuffer = new StringBuffer(16);
 /*     */     
-/* 139 */     for (byte b1 = 0; b1 < paramString.length(); b1++) {
-/* 140 */       c = paramString.charAt(b1);
-/* 141 */       if (!b2 && c != ' ') {
-/* 142 */         b2++;
+/* 139 */     for (byte i = 0; i < localeStr.length(); i++) {
+/* 140 */       c = localeStr.charAt(i);
+/* 141 */       if (!constructing && c != ' ') {
+/* 142 */         constructing = true;
 /* 143 */         character = new Character(c);
 /*     */       } else {
-/*     */         
-/* 146 */         if (b2 == 1 && c != ' ') {
-/*     */           
-/* 148 */           if (c == ' ')
-/* 149 */             c = ' '; 
+/* 146 */         if (constructing && c != ' ') {
+/* 148 */           if (c == '\u00a0')
+/* 149 */             c = ' ';
 /* 150 */           stringBuffer.append(c);
-/*     */         } 
-/* 152 */         if (b2 == 1 && c == ' ') {
-/*     */           
-/* 154 */           paramHashtable.put(character, stringBuffer.toString());
-/* 155 */           b2 = 0;
+/*     */         }
+/* 152 */         if (constructing && c == ' ') {
+/* 154 */           localeTable.put(character, stringBuffer.toString());
+/* 155 */           constructing = false;
 /* 156 */           stringBuffer = new StringBuffer(16);
-/*     */         } 
-/*     */       } 
-/*     */     } 
-/* 160 */     paramHashtable.put(character, stringBuffer.toString());
+/*     */         }
+/*     */       }
+/*     */     }
+/* 160 */     localeTable.put(character, stringBuffer.toString());
 /*     */   }
 /*     */ 
 /*     */ 
 /*     */   
-/*     */   void add_locale(String paramString1, String paramString2, String paramString3) {
-/* 166 */     Hashtable hashtable = new Hashtable();
+/*     */   void add_locale(String localeName, String localeStr, String alias) {
+/* 166 */     Hashtable<Character, String> localeTable = new Hashtable<>();
 /*     */ 
 /*     */     
-/* 169 */     parse_locale_str(paramString2, hashtable);
-/* 170 */     this.locales.put(paramString1, hashtable);
-/* 171 */     this.aliases.put(paramString3, paramString1);
-/* 172 */     this.reverse_alias.put(paramString1, paramString3);
+/* 169 */     parse_locale_str(localeStr, localeTable);
+/* 170 */     this.locales.put(localeName, localeTable);
+/* 171 */     this.aliases.put(alias, localeName);
+/* 172 */     this.reverse_alias.put(localeName, alias);
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   void add_iso_alias(String paramString1, String paramString2) {
-/* 177 */     this.locales.put(paramString2, this.locales.get(paramString1));
-/* 178 */     this.reverse_alias.put(paramString2, this.reverse_alias.get(paramString1));
+/*     */   void add_iso_alias(String localeName, String isoAlias) {
+/* 177 */     this.locales.put(isoAlias, this.locales.get(localeName));
+/* 178 */     this.reverse_alias.put(isoAlias, this.reverse_alias.get(localeName));
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   void add_alias(String paramString1, String paramString2) {
-/* 183 */     this.aliases.put(paramString2, paramString1);
-/* 184 */     this.reverse_alias.put(paramString1, paramString2);
+/*     */   void add_alias(String localeName, String alias) {
+/* 183 */     this.aliases.put(alias, localeName);
+/* 184 */     this.reverse_alias.put(localeName, alias);
 /*     */   }
 /*     */ 
 /*     */   
 /*     */   public LocaleTranslator() {
-/* 189 */     this.locales = new Hashtable();
-/* 190 */     this.aliases = new Hashtable();
-/* 191 */     this.reverse_alias = new Hashtable();
+/* 189 */     this.locales = new Hashtable<>();
+/* 190 */     this.aliases = new Hashtable<>();
+/* 191 */     this.reverse_alias = new Hashtable<>();
 /*     */     
 /* 193 */     String str = null;
 /*     */ 
 /*     */ 
 /*     */     
-/* 197 */     this.locales.put("en_US", new Hashtable());
+/* 197 */     this.locales.put("en_US", new Hashtable<>());
 /* 198 */     add_alias("en_US", "English (United States)");
 /*     */     
 /* 200 */     add_locale("en_GB", this.british + this.euro1, "English (United Kingdom)");
@@ -276,51 +226,50 @@
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   public int selectLocale(String paramString) {
-/* 280 */     String str = (String)this.aliases.get(paramString);
+/*     */   public int selectLocale(String localeName) {
+/* 280 */     String str = (String)this.aliases.get(localeName);
 /* 281 */     if (str != null) {
-/* 282 */       paramString = str;
+/* 282 */       localeName = str;
 /*     */     }
-/* 284 */     this.selected = (Hashtable)this.locales.get(paramString);
-/* 285 */     this.selected_name = (String)this.reverse_alias.get(paramString);
+/* 284 */     this.selected = this.locales.get(localeName);
+/* 285 */     this.selected_name = this.reverse_alias.get(localeName);
 /* 286 */     return (this.selected != null) ? 0 : -1;
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   public String translate(char paramChar) {
-/* 291 */     Character character = new Character(paramChar);
+/*     */   public String translate(char input) {
+/* 291 */     Character inputChar = new Character(input);
 /* 292 */     String str = null;
 /*     */     
 /* 294 */     if (this.selected != null) {
-/* 295 */       str = (String)this.selected.get(character);
+/* 295 */       str = (String)this.selected.get(inputChar);
 /*     */     }
 /*     */ 
-/*     */     
-/* 299 */     return (str == null) ? character.toString() : str;
+/* 299 */     return (str == null) ? inputChar.toString() : str;
 /*     */   }
 /*     */ 
 /*     */   
 /*     */   public String[] getLocales() {
 /* 304 */     int i = this.aliases.size();
-/* 305 */     String[] arrayOfString = new String[i];
+/* 305 */     String[] result = new String[i];
 /*     */     
-/* 307 */     Enumeration enumeration = this.aliases.keys();
+/* 307 */     Enumeration<String> aliasesNames = this.aliases.keys();
 /*     */     
 /* 309 */     byte b = 0;
-/* 310 */     while (enumeration.hasMoreElements()) {
-/* 311 */       arrayOfString[b++] = enumeration.nextElement();
+/* 310 */     while (aliasesNames.hasMoreElements()) {
+/* 311 */       result[b++] = aliasesNames.nextElement();
 /*     */     }
 /*     */     
 /* 314 */     for (b = 0; b < i - 1; b++) {
 /* 315 */       for (int j = b + 1; j < i; j++) {
-/* 316 */         if (arrayOfString[j].compareTo(arrayOfString[b]) < 0) {
-/* 317 */           String str = arrayOfString[j];
-/* 318 */           arrayOfString[j] = arrayOfString[b];
-/* 319 */           arrayOfString[b] = str;
+/* 316 */         if (result[j].compareTo(result[b]) < 0) {
+/* 317 */           String str = result[j];
+/* 318 */           result[j] = result[b];
+/* 319 */           result[b] = str;
 /*     */         } 
 /*     */       } 
 /*     */     } 
-/* 323 */     return arrayOfString;
+/* 323 */     return result;
 /*     */   }
 /*     */ 
 /*     */   

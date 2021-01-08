@@ -14,7 +14,7 @@
 /*     */ 
 /*     */ public class ReplyHeader
 /*     */ {
-/*     */   public static final int magic = 195936478;
+/*     */   public static final int magic = 0xBADC0DE;
 /*     */   public static final int WP = 1;
 /*     */   public static final int KEEPALIVE = 2;
 /*     */   public static final int DISCONNECT = 4;
@@ -27,11 +27,11 @@
 /*  27 */   byte[] data = new byte[16];
 /*     */ 
 /*     */   
-/*     */   void set(int paramInt1, int paramInt2, int paramInt3, int paramInt4) {
-/*  31 */     this.sense_key = (byte)paramInt1;
-/*  32 */     this.asc = (byte)paramInt2;
-/*  33 */     this.ascq = (byte)paramInt3;
-/*  34 */     this.length = paramInt4;
+/*     */   void set(int sense_key, int asc, int ascq, int length) {
+/*  31 */     this.sense_key = (byte)sense_key;
+/*  32 */     this.asc = (byte)asc;
+/*  33 */     this.ascq = (byte)ascq;
+/*  34 */     this.length = length;
 /*     */   }
 /*     */ 
 /*     */   
@@ -65,7 +65,7 @@
 /*     */   }
 /*     */   
 /*     */   void send(OutputStream paramOutputStream) throws IOException {
-/*  68 */     this.data[0] = -34;
+/*  68 */     this.data[0] = -34;// magic in LE
 /*  69 */     this.data[1] = -64;
 /*  70 */     this.data[2] = -83;
 /*  71 */     this.data[3] = 11;

@@ -69,8 +69,8 @@
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   public static void hexdump(int paramInt1, byte[] paramArrayOfbyte, int paramInt2) {
-/*  73 */     if (debug < paramInt1) {
+/*     */   public static void hexdump(int debugLevel, byte[] paramArrayOfbyte, int paramInt2) {
+/*  73 */     if (debug < debugLevel) {
 /*     */       return;
 /*     */     }
 /*  76 */     if (paramInt2 == 0)

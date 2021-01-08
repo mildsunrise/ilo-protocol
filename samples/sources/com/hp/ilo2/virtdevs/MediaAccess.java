@@ -50,9 +50,9 @@
 /*  50 */   int zero_offset = 0;
 /*     */ 
 /*     */   
-/*     */   public int open(String paramString, int paramInt) throws IOException {
-/*  54 */     this.dev = ((paramInt & 0x1) == 1);
-/*  55 */     boolean bool = ((paramInt & 0x2) == 2) ? true : false;
+/*     */   public int open(String filename, int flags) throws IOException {
+/*  54 */     this.dev = ((flags & 0x1) == 1);
+/*  55 */     boolean bool = ((flags & 0x2) == 2) ? true : false;
 /*     */ 
 /*     */     
 /*  58 */     this.zero_offset = 0;
@@ -61,14 +61,14 @@
 /*  61 */         throw new IOException("DirectIO not possible (" + dio_setup + ")"); 
 /*  62 */       if (this.dio == null)
 /*  63 */         this.dio = new DirectIO(); 
-/*  64 */       return this.dio.open(paramString);
+/*  64 */       return this.dio.open(filename);
 /*     */     } 
 /*  66 */     this.readonly = false;
-/*  67 */     this.file = new File(paramString);
+/*  67 */     this.file = new File(filename);
 /*  68 */     if (!this.file.exists() && !bool)
-/*  69 */       throw new IOException("File " + paramString + " does not exist"); 
+/*  69 */       throw new IOException("File " + filename + " does not exist"); 
 /*  70 */     if (this.file.isDirectory()) {
-/*  71 */       throw new IOException("File " + paramString + " is a directory");
+/*  71 */       throw new IOException("File " + filename + " is a directory");
 /*     */     }
 /*     */ 
 /*     */ 
@@ -77,11 +77,11 @@
 /*     */ 
 /*     */     
 /*     */     try {
-/*  80 */       this.raf = new RandomAccessFile(paramString, "rw");
+/*  80 */       this.raf = new RandomAccessFile(filename, "rw");
 /*     */     } catch (IOException iOException) {
 /*     */       
 /*  83 */       if (!bool) {
-/*  84 */         this.raf = new RandomAccessFile(paramString, "r");
+/*  84 */         this.raf = new RandomAccessFile(filename, "r");
 /*  85 */         this.readonly = true;
 /*     */       } else {
 /*  87 */         throw iOException;
@@ -179,12 +179,12 @@
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   public int devtype(String paramString) {
+/*     */   public int devtype(String target) {
 /* 183 */     if (dio_setup != 0)
 /* 184 */       return 0; 
 /* 185 */     if (this.dio == null)
 /* 186 */       this.dio = new DirectIO(); 
-/* 187 */     return this.dio.devtype(paramString);
+/* 187 */     return this.dio.devtype(target);
 /*     */   }
 /*     */ 
 /*     */   

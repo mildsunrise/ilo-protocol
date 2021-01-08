@@ -225,23 +225,11 @@ public class remcons
     this.img[20] = getImg("Warning.png");
     this.img[21] = getImg("yellow.png");
 
-
-
-
-
-
-
-
-
-
-    
     this.locale_setter = new Thread(this);
     this.locale_setter.start();
     
     init_params();
 
-
-    
     boolean bool = false;
     String str1 = System.getProperty("os.name").toLowerCase();
     String str2 = System.getProperty("java.vm.name");
@@ -1106,7 +1094,8 @@ public class remcons
       this.localKbdLayoutId = paramInt;
     } 
   }
-  class keyBoardTimerListener implements TimerListener { keyBoardTimerListener(remcons this$0) {
+  class keyBoardTimerListener implements TimerListener {
+    keyBoardTimerListener(remcons this$0) {
       this.this$0 = this$0;
     }
 
@@ -1116,58 +1105,44 @@ public class remcons
     
     public synchronized void timeout(Object param1Object) {
       boolean bool1 = false;
-      byte[] arrayOfByte = new byte[10];
+      byte[] kcmd = new byte[10];
       boolean bool2 = false;
-      char c = 'ϣ';
       
-      if (this.this$0.kHook != null && this.this$0.kbHookInstalled == true) {
-        do
-        {
-          this.this$0.prevKeyData = this.this$0.keyData;
-          this.this$0.keyData = this.this$0.kHook.GetKeyData();
-          
-          if (this.this$0.keyData == this.this$0.prevKeyData || 0 == this.this$0.keyData) {
-            continue;
-          }
-          
-          int i = (this.this$0.keyData & 0xFF0000) >> 16;
-          int k = (this.this$0.keyData & 0xFF00) >> 8;
-          int j = this.this$0.keyData & 0xFF;
-          
-          if ((i & 0x90) == 144) {
+      if (!(this.this$0.kHook != null && this.this$0.kbHookInstalled == true))
+        return;
 
-
-            
-            bool2 = true;
-          }
-          else if ((i & 0x80) == 128) {
-
-            
-            bool1 = false;
-            bool2 = false;
-          
-          }
-          else {
-            
-            bool1 = true;
-            bool2 = false;
-          } 
-
-
-          
-          arrayOfByte = this.this$0.kHook.HandleHookKey(j, k, bool1, bool2);
-          if (this.this$0.kHook.kcmdValid) {
-            if (false == this.this$0.kbHookDataRcvd) {
-              this.this$0.kbHookDataRcvd = true;
-            }
-            this.this$0.session.transmitb(arrayOfByte, arrayOfByte.length);
-          } 
-          
-          c = Character.MIN_VALUE;
+      int retries = 995;
+      do {
+        this.this$0.prevKeyData = this.this$0.keyData;
+        this.this$0.keyData = this.this$0.kHook.GetKeyData();
         
+        if (this.this$0.keyData == this.this$0.prevKeyData || 0 == this.this$0.keyData) {
+          continue;
         }
-        while (c++ < 'Ϩ');
-      }
+        
+        int kd16 = (this.this$0.keyData & 0xFF0000) >> 16;
+        int kd8 = (this.this$0.keyData & 0xFF00) >> 8;
+        int kd0 = this.this$0.keyData & 0xFF;
+        
+        if ((kd16 & 0x90) == 144) {
+          bool2 = true;
+        } else if ((kd16 & 0x80) == 128) {
+          bool1 = false;
+          bool2 = false;
+        } else {
+          bool1 = true;
+          bool2 = false;
+        }
+
+        kcmd = this.this$0.kHook.HandleHookKey(kd0, kd8, bool1, bool2);
+        if (this.this$0.kHook.kcmdValid) {
+          if (!this.this$0.kbHookDataRcvd)
+            this.this$0.kbHookDataRcvd = true;
+          this.this$0.session.transmitb(kcmd, kcmd.length);
+        }
+        
+        retries = 0;
+      } while (retries++ < 1000);
     }
   }
 

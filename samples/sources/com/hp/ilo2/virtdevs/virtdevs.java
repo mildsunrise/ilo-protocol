@@ -458,12 +458,12 @@
 /*     */   }
 /*     */ 
 /*     */   
-/*     */   public boolean rekey(String paramString) {
+/*     */   public boolean rekey(String page) {
 /* 462 */     String str = null;
 /*     */     
 /*     */     try {
-/* 465 */       D.println(3, "Downloading new key: " + this.base + paramString);
-/* 466 */       URL uRL = new URL(this.base + paramString);
+/* 465 */       D.println(3, "Downloading new key: " + this.base + page);
+/* 466 */       URL uRL = new URL(this.base + page);
 /* 467 */       BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(uRL.openStream()));
 /*     */       String str1;
 /* 469 */       while ((str1 = bufferedReader.readLine()) != null) {
