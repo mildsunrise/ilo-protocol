@@ -43,7 +43,7 @@ export enum MessageChannel {
 
 // Machine states and their associated data
 
-enum State {
+export enum State {
     RESET = 0,
     BEGIN = 1,
     PIXEL_BEGIN = 2,
@@ -99,7 +99,7 @@ interface StateData {
     next0?: State
 }
 
-const STATE_DATA: { [state: number]: StateData } = {
+export const STATE_DATA: { [state: number]: StateData } = {
     [State.RESET]: { bits: 0, next: State.BEGIN },
     [State.BEGIN]: { bits: 1, next: State.OTHER, next0: State.PIXEL_BEGIN },
 
