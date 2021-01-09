@@ -5,7 +5,7 @@ import { RestAPIClient } from './lib/rest'
 import { negotiateConnection } from './lib/rc/handshake'
 import { DvcEncryption, Telnet } from './lib/rc/telnet'
 import { DvcDecoder, MessageChannel } from './lib/rc/video'
-import { Command, formatCommand, formatKeyboardCommand, powerStatusCommands } from './lib/rc/command'
+import { Command, formatCommand, formatKeyboardCommand, formatMouseCommand, powerStatusCommands } from './lib/rc/command'
 
 const gi = require('node-gtk')
 const Gtk = gi.require('Gtk', '3.0')
@@ -102,7 +102,7 @@ async function main() {
 
         protected noVideo() {
             console.log('No video')
-            surface = surfaceCr = blockImage = undefined
+            screenSize = surface = surfaceCr = blockImage = undefined
         }
         protected seize() {
             console.log('Connection seized (TODO)')
@@ -116,6 +116,7 @@ async function main() {
 
         protected setScreenDimensions(x: number, y: number) {
             console.log(`Screen dimensions: ${x} x ${y}`)
+            screenSize = [x, y]
             surface = win.window.createSimilarSurface(Cairo.Content.COLOR, x, y)
             surfaceCr = new Cairo.Context(surface)
             surfaceCr.setSourceRgb(0, 0, 0)
@@ -151,10 +152,9 @@ async function main() {
     let invalidateTrackTimer: NodeJS.Timeout
 
 
-    // UI
+    // Screen widget
 
-    let quitting = false
-    let surface, surfaceCr, blockImage
+    let screenSize, surface, surfaceCr, blockImage
 
     const drawingArea = new Gtk.DrawingArea()
     // FIXME: drawingArea.on('configure-event', () => {})
@@ -170,8 +170,12 @@ async function main() {
     drawingArea.addEvents(0
         | Gdk.EventMask.KEY_PRESS_MASK
         | Gdk.EventMask.KEY_RELEASE_MASK
-        | Gdk.EventMask.BUTTON_MOTION_MASK
+        | Gdk.EventMask.BUTTON_PRESS_MASK
+        | Gdk.EventMask.BUTTON_RELEASE_MASK
+        | Gdk.EventMask.POINTER_MOTION_MASK
     )
+
+    // keyboard
     drawingArea.on('key-press-event', keyHandler)
     drawingArea.on('key-release-event', keyHandler)
     const keysPressed = new Set<number>()
@@ -191,6 +195,43 @@ async function main() {
         const hidCodes = Array.from(keysPressed).reverse()
         telnet.sendDvc(formatKeyboardCommand(hidCodes))
     }
+
+    // mouse
+    drawingArea.on('button-press-event', mouseEvent)
+    drawingArea.on('button-release-event', mouseEvent)
+    drawingArea.on('motion-notify-event', mouseEvent)
+    let mousePosition = [0, 0]
+    let buttonsPressed = 0
+    function mouseEvent(event) {
+        if (!screenSize)
+            return
+        if (event.type === Gdk.EventType.BUTTON_PRESS ||
+            event.type === Gdk.EventType.BUTTON_RELEASE) {
+            let bit
+                 if (event.button === 1) bit = 1 << 0
+            else if (event.button === 3) bit = 1 << 1
+            else if (event.button === 2) bit = 1 << 2
+            else return true
+
+            if (event.type === Gdk.EventType.BUTTON_PRESS)
+                buttonsPressed |= bit
+            else
+                buttonsPressed &= ~bit
+            sendMouse()
+        }
+        if (event.type === Gdk.EventType.MOTION_NOTIFY) {
+            mousePosition = [event.x / screenSize[0], event.y / screenSize[1]]
+            sendMouse()
+        }
+        return true // we consumed the event
+    }
+    const sendMouse = () => 
+        telnet.sendDvc(formatMouseCommand(mousePosition[0], mousePosition[1], buttonsPressed))
+
+
+    // Rest of UI
+
+    let quitting = false
 
     const frame = new Gtk.Frame()
     frame.shadowType = Gtk.ShadowType.IN

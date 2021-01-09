@@ -30,8 +30,10 @@ export enum Command {
 
     /** power button / status command. argument is u16, see [[powerStatusCommands]] */
     POWER_STATUS = 0x0000,
-    /** keyboard input. argument is an 8-byte typical USB keyboard report */
+    /** keyboard input. argument is an 8-byte typical USB keyboard report, see [[formatKeyboardCommand]] */
     KEYBOARD = 0x0001,
+    /** mouse input. argument is an 8-byte custom USB absolute mouse report, see [[formatMouseCommand]] */
+    MOUSE = 0x0002,
 
     /** restart the video stream. no arguments */
     REFRESH_SCREEN = 0x0005,
@@ -52,17 +54,35 @@ export const powerStatusCommands = {
     SYSTEM_RESET: formatCommand(Command.POWER_STATUS, u16(3)),
 }
 
-export function formatKeyboardCommand(hidCodes: number[]) {
+/** Note: Excluding DV keycodes, only the first 6 keycodes in the array will be sent. */
+export function formatKeyboardCommand(hidKeycodes: number[]) {
     const report = Buffer.alloc(8)
     let position = 2
-    for (const hidCode of hidCodes) {
-        if ((hidCode & 0xE0) === 0xE0 && (hidCode & 0x1F) < 8) {
-            report[0] |= (1 << (hidCode & 0x1F))
-            continue
-        }
-        report[position++] = hidCode
-        if (position >= report.length)
-            position = report.length - 1
+    for (const keycode of hidKeycodes) {
+        if (keycode !== (keycode & 0xFF))
+            throw Error(`cannot send keycode ${keycode}`)
+        if ((keycode & 0xF8) === 0xE0)
+            report[0] |= (1 << (keycode & 0x07))
+        else
+            report[position++] = keycode
     }
     return formatCommand(Command.KEYBOARD, report)
+}
+
+/**
+ * Screen coordinates should be divided by screen width / height first,
+ * so they end up in range [0, 1].
+ * 
+ * `buttons` is a bitfield of the pressed buttons: bit 0 is the 'left'
+ * button, bit 1 is the 'right' button, and bit 2 is the middle button.
+ */
+export function formatMouseCommand(x: number, y: number, buttons: number) {
+    const report = Buffer.alloc(8)
+    const clampAndRound = (n: number) => Math.round(3000 * Math.min(1, Math.max(0, n)) )
+    report.writeUInt16LE(clampAndRound(x), 0)
+    report.writeUInt16LE(clampAndRound(y), 2)
+    // bytes 4-5 used to hold relative X / Y coordinates, it seems
+    report[6] = buttons
+    // byte 7 is unused
+    return formatCommand(Command.MOUSE, report)
 }
