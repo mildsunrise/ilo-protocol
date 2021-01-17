@@ -22,7 +22,9 @@ export const getU8LeftLUT = (): number[] => [...Array(256)].map((_, x) => {
 export const mask = (nbits: number) => (1 << nbits) - 1
 
 /** Return a resized copy of the passed buffer, by cropping or adding zeros. */
-export function truncateBuf(buf: Uint8Array, size: number) {
+export function truncateBuf(buf: Buffer, size: number) {
+    if (buf.length >= size)
+        return buf.subarray(0, size)
     const result = Buffer.alloc(size)
     result.set(buf)
     return result
@@ -33,8 +35,8 @@ export function truncateBuf(buf: Uint8Array, size: number) {
 const reversal = getU8ReversedLUT()  // bits reversed    
 
 export class BitQueue {
-    protected bits: number
-    nbits: number
+    protected bits!: number
+    nbits!: number
 
     constructor() {
         this.init()
@@ -59,6 +61,8 @@ export class BitQueue {
      * If not enough bits are present,
      */
     pop(nbits: number) {
+        if ((nbits >>> 0) !== nbits)
+            throw Error(`invalid nbits ${nbits}`)
         if (nbits > this.nbits)
             throw Error('requested more bits than present')
         const result = this.bits & mask(nbits)
@@ -74,7 +78,7 @@ export class LRUCache {
     readonly lastUsed = new Uint32Array(17)
     protected readonly value = new Uint32Array(17)
     protected readonly blockNumber = new Uint32Array(17)
-    nentries: number
+    nentries!: number
 
     constructor() {
         this.init()
@@ -99,7 +103,7 @@ export class LRUCache {
      * Returns true if an entry with that value already existed in the cache
      */
     add(n: number): boolean {
-        let oldestEntry
+        let oldestEntry = 0
         for (let i = 0; i < this.nentries; i++) {
             if (this.lastUsed[i] === this.nentries - 1)
                 oldestEntry = i
@@ -117,10 +121,11 @@ export class LRUCache {
         }
         this.value[i] = n
         this.touch(i)
+        return false
     }
 
     /** Find an entry by its usage, then touch it and return its value, or undefined if not found */
-    find(usage: number): number {
+    find(usage: number): number | undefined {
         for (let i = 0; i < this.nentries; i++) {
             if (this.lastUsed[i] !== usage) continue
             this.touch(i)

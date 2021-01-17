@@ -13,8 +13,8 @@ export class Telnet {
     protected key: Buffer
     protected ciphers: { [enc: number]: [CipherFn, CipherFn] } = {}
 
-    protected cipher: DvcEncryption
-    protected state: {
+    protected cipher!: DvcEncryption
+    protected state!: {
         dvcMode: false
         ctr1: number
     } | {
@@ -33,9 +33,7 @@ export class Telnet {
         if (this.state.dvcMode === true) {
             if (this.state.encryption)
                 b = this.ciphers[this.cipher][0](Buffer.of(b))[0]
-            const remainDvc = this.receiveDvc(b)
-            if (!remainDvc)
-                this.state = { dvcMode: false, ctr1: 0 }
+            this.receiveDvc(b)
         } else if (this.state.dvcMode === false) {
             if (this.state.ctr1 === 0 && b === 0x1B)
                 this.state.ctr1++
@@ -74,6 +72,10 @@ export class Telnet {
         const decrypter = cipherImpls[enc](this.key)
         const encrypter = cipherImpls[enc](this.key)
         this.ciphers[enc] = [ decrypter, encrypter ]
+    }
+
+    public exitDvc() {
+        this.state = { dvcMode: false, ctr1: 0 }
     }
 
 

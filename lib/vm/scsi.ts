@@ -251,7 +251,7 @@ export class VirtualDevice {
         this.send(formatHeader(senseKey, asc, ascq, this.media, 0, payload))
     }
 
-    protected keepaliveTimeout: NodeJS.Timeout
+    protected keepaliveTimeout?: NodeJS.Timeout
 
     protected resetKeepaliveTimeout() {
         if (this.keepaliveTimeout)

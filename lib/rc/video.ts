@@ -1,5 +1,5 @@
-import { DvcEncryption } from './telnet'
 import { BitQueue, getU8LeftLUT, getU8RightLUT, LRUCache } from '../utils'
+import { DvcEncryption } from './telnet'
 
 // look up tables for uint8
 const dvc_right = getU8RightLUT()        // amount of zeros starting from the right (8 if all bits zero)
@@ -186,32 +186,32 @@ export class DvcDecoder {
     debug = false
     readonly blockWidth = 16
 
-    byteCount: number // bytes processed by consumeBits
+    byteCount!: number // bytes processed by consumeBits
     readonly bitQueue = new BitQueue()
-    dvc_zero_count: number // how many consecutive zeros we've pushed to the queue
+    dvc_zero_count!: number // how many consecutive zeros we've pushed to the queue
 
-    fatal_count: number
-    timeout_count: number
-    dvc_decoder_state: State
-    dvc_next_state: State
+    fatal_count!: number
+    timeout_count!: number
+    dvc_decoder_state!: State
+    dvc_next_state!: State
     
-    video_detected: boolean
-    size: [number, number]
-    position: [number, number]
-    dvc_newx: number // temporary variable, rename to currentX
+    video_detected!: boolean
+    size!: [number, number]
+    position!: [number, number]
+    dvc_newx!: number // temporary variable, rename to currentX
 
-    bitsPerColor: number
-    dvc_pixcode: number
-    dvc_last_color: number
-    currentColor: [number, number, number]
+    bitsPerColor!: number
+    dvc_pixcode!: number
+    dvc_last_color!: number
+    currentColor!: [number, number, number]
     cache = new LRUCache()
 
     block = new Uint32Array(16 * 16)
-    blockHeight: number
-    dvc_pixel_count: number
+    blockHeight!: number
+    dvc_pixel_count!: number
 
-    currentCommand: number[]
-    currentString: { channel: MessageChannel, data: string }
+    currentCommand!: number[]
+    currentString?: { channel: MessageChannel, data: string }
 
     protected initQueue() {
         this.byteCount = 0
@@ -304,11 +304,12 @@ export class DvcDecoder {
                 dvc_code++
             }
 
-            this.dvc_last_color = this.cache.find(dvc_code)
-            if (this.dvc_last_color === undefined) {
+            const _col = this.cache.find(dvc_code)
+            if (_col === undefined) {
                 this.dvc_next_state = State.FATAL_ERROR
                 break
             }
+            this.dvc_last_color = _col
 
             this.addPixel()
             break
@@ -430,9 +431,9 @@ export class DvcDecoder {
 
         case State.STRING_READ:
             if (dvc_code != 0)
-                this.currentString.data += String.fromCharCode(dvc_code)
+                this.currentString!.data += String.fromCharCode(dvc_code)
             else
-                this.printString(this.currentString.channel, this.currentString.data)
+                this.printString(this.currentString!.channel, this.currentString!.data)
             break
 
         case State.RESET:
@@ -615,7 +616,9 @@ export class DvcDecoder {
             this.invalidateScreen()
             break
 
-        // FIXME: default case
+        default:
+            console.log(`Unknown command: ${command} ${args}`)
+            break
         }
     }
 
@@ -689,8 +692,6 @@ export class DvcDecoder {
     public process(byte: number) {
         // FIXME: why are these things initialized there
         this.consumeBits(byte)
-        // FIXME: implement going out of DVC mode
-        return true
     }
 
     public get ok() {
@@ -714,6 +715,7 @@ export class DvcDecoder {
     protected seize() {}
     protected ping() {} // send ACK
     protected requestScreenRefresh() {} // request server to refresh screen
+    protected exitDvc() {} // tell Telnet to exit DVC mode
 
     protected setScreenDimensions(x: number, y: number) {}
     protected renderBlock(block: Uint32Array, x: number, y: number, width: number, height: number) {}

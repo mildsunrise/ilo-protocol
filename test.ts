@@ -108,10 +108,16 @@ async function main() {
             console.log('Connection seized (TODO)')
         }
         protected ping() {
+            console.log('Ping')
             telnet.sendDvc(formatCommand(Command.ACK))
         }
         protected requestScreenRefresh() {
             telnet.sendDvc(formatCommand(Command.REFRESH_SCREEN))
+            console.log('Requesting resync...')
+        }
+        protected exitDvc() {
+            console.log('Exiting DVC mode...')
+            telnet.exitDvc()
         }
 
         protected setScreenDimensions(x: number, y: number) {
@@ -127,6 +133,7 @@ async function main() {
         protected renderBlock(block: Uint32Array, x: number, y: number, width: number, height: number) {
             if (!surface)
                 return console.error('painting before setting screen dimensions')
+            blockImage.markDirty()
             surfaceCr.setSourceSurface(blockImage, x, y)
             surfaceCr.paint()
             drawingArea.queueDrawArea(x, y, width, height)
@@ -203,6 +210,8 @@ async function main() {
     let mousePosition = [0, 0]
     let buttonsPressed = 0
     function mouseEvent(event) {
+        if (event.type === Gdk.EventType.BUTTON_PRESS)
+            drawingArea.grabFocus()
         if (!screenSize)
             return
         if (event.type === Gdk.EventType.BUTTON_PRESS ||
@@ -250,6 +259,7 @@ async function main() {
     for (const [ data, label ] of btnData) {
         const btn = new Gtk.Button()
         btn.label = label
+        btn.focusOnClick = false
         btn.on('clicked', () => telnet.sendDvc(data))
         buttonsBox.packStart(btn, false, true, 0)
     }
@@ -275,6 +285,7 @@ async function main() {
     win.on('delete-event', () => false)
 
     win.showAll()
+    drawingArea.grabFocus()
     Gtk.main()
 
 }
