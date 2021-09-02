@@ -114,6 +114,30 @@ export class RestAPIClient {
         return body
     }
 
+    async rekey() {
+        const response = await got(this.base + '/html/java_irc.html', {
+            ...this._getOptions(),
+            responseType: 'text',
+        })
+        const m = /INFO0\\=\\"([0-9a-fA-F]{32})\\"/.exec(response.body)
+        require('fs').writeFileSync('/tmp/out', response.body)
+        if (!m)
+            throw Error('info not found?')
+        return m[1]
+    }
+
+    async updateConfig(configName: string) {
+        const response = await got(this.base + `/modusb.cgi?usb=${configName}`, {
+            ...this._getOptions(),
+            responseType: 'text',
+        })
+        const m = /INFO0\\=\\"([0-9a-fA-F]{32})\\"/.exec(response.body)
+        require('fs').writeFileSync('/tmp/out', response.body)
+        if (!m)
+            throw Error('info not found?')
+        return m[1]
+    }
+
     async getSessionInfo() {
         const response = await got(this.base + '/json/session_info', {
             ...this._getOptions(),
