@@ -21,7 +21,7 @@ if (args.length !== 2) {
     process.exit(2)
 }
 const [ address, creds ] = args
-const [ username, password ] = /^(.+?):(.+)$/.exec(creds).slice(1)
+const [ username, password ] = /^(.+?):(.+)$/.exec(creds)!.slice(1)
 
 if (osType() !== 'Linux')
     console.warn('CAUTION: Keyboard input is implemented for Linux, and won\'t work correctly on other platforms.')
@@ -59,7 +59,7 @@ async function main() {
     const client = new RestAPIClient(`https://${address}`)
     await client.loginSession(username, password)
 
-    console.log(`Session key: ${client.sessionKey.toString('hex')}`)
+    console.log(`Session key: ${client.sessionKey!.toString('hex')}`)
     const rcInfo = await client.getRcInfo()
     console.log(`Encryption key: ${rcInfo.encKey}`)
     console.log(`Optional features: ${Array.from(rcInfo.optionalFeatures).join(', ')}`)
@@ -71,14 +71,14 @@ async function main() {
     rcSocket.setNoDelay(true)
     // code also disables SO_LINGER
     await once(rcSocket, 'connect')
-    await negotiateConnection(false, rcSocket, client.sessionKey, rcInfo)
+    await negotiateConnection(false, rcSocket, client.sessionKey!, rcInfo)
     console.log('Connected to remote console.')
 
     // Set up the command connection
     const cmdSocket = connect({ host: address, port: rcInfo.rcPort })
     // code also disables SO_LINGER
     await once(cmdSocket, 'connect')
-    await negotiateConnection(true, cmdSocket, client.sessionKey, rcInfo)
+    await negotiateConnection(true, cmdSocket, client.sessionKey!, rcInfo)
     console.log('Connected to command session.')
 
 
@@ -175,11 +175,12 @@ async function main() {
 
     // Screen widget
 
-    let screenSize, surface, surfaceCr, blockImage
+    let screenSize: [number, number] | undefined
+    let surface: any, surfaceCr: any, blockImage: any
 
     const drawingArea = new Gtk.DrawingArea()
     // FIXME: drawingArea.on('configure-event', () => {})
-    drawingArea.on('draw', (cr) => {
+    drawingArea.on('draw', (cr: any) => {
         if (!surface)
             return
         cr.setSourceSurface(surface, 0, 0)
@@ -200,7 +201,7 @@ async function main() {
     drawingArea.on('key-press-event', keyHandler)
     drawingArea.on('key-release-event', keyHandler)
     const keysPressed = new Set<number>()
-    function keyHandler(event) {
+    function keyHandler(event: any) {
         const pressed = event.type === Gdk.EventType.KEY_PRESS
         const hidCode = mapGdkKeycodeToHid(event.hardwareKeycode)
         if (hidCode !== undefined) {
@@ -223,7 +224,7 @@ async function main() {
     drawingArea.on('motion-notify-event', mouseEvent)
     let mousePosition = [0, 0]
     let buttonsPressed = 0
-    function mouseEvent(event) {
+    function mouseEvent(event: any) {
         if (event.type === Gdk.EventType.BUTTON_PRESS)
             drawingArea.grabFocus()
         if (!screenSize)

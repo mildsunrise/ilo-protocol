@@ -17,7 +17,7 @@ if (args.length !== 3) {
     process.exit(2)
 }
 const [ address, creds, vmFilename ] = args
-const [ username, password ] = /^(.+?):(.+)$/.exec(creds).slice(1)
+const [ username, password ] = /^(.+?):(.+)$/.exec(creds)!.slice(1)
 
 async function main() {
     // Open the file
