@@ -30,17 +30,29 @@ gi.startLoop()
 Gtk.init()
 
 // Based on "usb_kbd_keycode" from drivers/hid/usbhid/usbkbd.c @ 1a59d1b
-// FIXME: does 43 map to 49 or 50?
-const LINUX_KEYCODE_TO_HID = { 30: 4, 48: 5, 46: 6, 32: 7, 18: 8, 33: 9, 34: 10, 35: 11, 23: 12, 36: 13, 37: 14, 38: 15, 50: 16, 49: 17, 24: 18, 25: 19, 16: 20, 19: 21, 31: 22, 20: 23, 22: 24, 47: 25, 17: 26, 45: 27, 21: 28, 44: 29, 2: 30, 3: 31, 4: 32, 5: 33, 6: 34, 7: 35, 8: 36, 9: 37, 10: 38, 11: 39, 28: 40, 1: 41, 14: 42, 15: 43, 57: 44, 12: 45, 13: 46, 26: 47, 27: 48, 43: 49, 39: 51, 40: 52, 41: 53, 51: 54, 52: 55, 53: 56, 58: 57, 59: 58, 60: 59, 61: 60, 62: 61, 63: 62, 64: 63, 65: 64, 66: 65, 67: 66, 68: 67, 87: 68, 88: 69, 99: 70, 70: 71, 119: 72, 110: 73, 102: 74, 104: 75, 111: 76, 107: 77, 109: 78, 106: 79, 105: 80, 108: 81, 103: 82, 69: 83, 98: 84, 55: 85, 74: 86, 78: 87, 96: 88, 79: 89, 80: 90, 81: 91, 75: 92, 76: 93, 77: 94, 71: 95, 72: 96, 73: 97, 82: 98, 83: 99, 86: 100, 127: 101, 116: 102, 117: 103, 183: 104, 184: 105, 185: 106, 186: 107, 187: 108, 188: 109, 189: 110, 190: 111, 191: 112, 192: 113, 193: 114, 194: 115, 134: 116, 138: 117, 130: 118, 132: 119, 128: 120, 129: 121, 131: 122, 137: 123, 133: 124, 135: 125, 136: 126, 113: 127, 115: 128, 114: 129, 121: 133, 89: 135, 93: 136, 124: 137, 92: 138, 94: 139, 95: 140, 122: 144, 123: 145, 90: 146, 91: 147, 85: 148, 29: 224, 42: 225, 56: 226, 125: 227, 97: 228, 54: 229, 100: 230, 126: 231, 164: 232, 166: 233, 165: 234, 163: 235, 161: 236, 150: 240, 158: 241, 159: 242, 177: 245, 178: 246, 176: 247, 142: 248, 152: 249, 173: 250, 140: 251 }
+// Maps KEY_BACKSLASH into 0x31 (not 0x32)
+const linux_to_hid = [
+    0, 41, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 45, 46, 42, 43,
+   20, 26,  8, 21, 23, 28, 24, 12, 18, 19, 47, 48, 40,224,  4, 22,
+    7,  9, 10, 11, 13, 14, 15, 51, 52, 53,225, 49, 29, 27,  6, 25,
+    5, 17, 16, 54, 55, 56,229, 85,226, 44, 57, 58, 59, 60, 61, 62,
+   63, 64, 65, 66, 67, 83, 71, 95, 96, 97, 86, 92, 93, 94, 87, 89,
+   90, 91, 98, 99,  0,148,100, 68, 69,135,146,147,138,136,139,140,
+   88,228, 84, 70,230,  0, 74, 82, 75, 80, 79, 77, 81, 78, 73, 76,
+    0,127,129,128,102,103,  0, 72,  0,133,144,145,137,227,231,101,
+  120,121,118,122,119,124,116,125,126,123,117,  0,251,  0,248,  0,
+    0,  0,  0,  0,  0,  0,240,  0,249,  0,  0,  0,  0,  0,241,242,
+    0,236,  0,235,232,234,233,  0,  0,  0,  0,  0,  0,250,  0,  0,
+  247,245,246,  0,  0,  0,  0,104,105,106,107,108,109,110,111,112,
+  113,114,115
+]
 
 function mapGdkKeycodeToHid(n: number) {
-    // we'll assume this is an X11 keycode (FIXME),
-    // then we can supposedly get the Linux keycode by subtracting 8
+    // subtract 8 to get actual keycode
     n -= 8
-    // we'll then map this to HID keycode
-    if (!Object.hasOwnProperty.call(LINUX_KEYCODE_TO_HID, n))
-        return
-    return LINUX_KEYCODE_TO_HID[n]
+    // we'll then assume this is an evdev keycode, and use the table above
+    if (!linux_to_hid[n]) return
+    return linux_to_hid[n]
 }
 
 async function main() {
@@ -85,7 +97,6 @@ async function main() {
         protected send(data: Buffer) {
             rcSocket.write(data)
         }
-
         protected receiveDvc(n: number) {
             decoder.process(n)
         }
@@ -157,18 +168,9 @@ async function main() {
             //console.log('Repaint screen')
         }
         protected invalidateScreen() {
-            if (invalidateTrackTimer === undefined)
-                console.log('Screen is now being refreshed')
-            else
-                clearTimeout(invalidateTrackTimer)
-            invalidateTrackTimer = setTimeout(() => {
-                console.log('Screen no longer being refreshed')
-                invalidateTrackTimer = undefined
-            }, 350)
         }
     }
 
-    let invalidateTrackTimer: NodeJS.Timeout
 
 
     // Screen widget
@@ -276,10 +278,15 @@ async function main() {
         buttonsBox.packStart(btn, false, true, 0)
     }
 
+    // FIXME: what's wrong with gtk.alignment?
+    const frameAlBox = new Gtk.Box()
+    frameAlBox.orientation = Gtk.Orientation.HORIZONTAL
+    frameAlBox.packStart(frame, true, false, 0)
+
     const mainBox = new Gtk.Box()
     mainBox.orientation = Gtk.Orientation.VERTICAL
     mainBox.spacing = 8
-    mainBox.packStart(frame, true, true, 0)
+    mainBox.packStart(frameAlBox, true, false, 0)
     mainBox.packStart(buttonsBox, false, true, 0)
 
     const win = new Gtk.Window()
@@ -291,8 +298,6 @@ async function main() {
         Gtk.mainQuit()
         rcSocket.end()
         cmdSocket.end()
-        if (invalidateTrackTimer)
-            clearTimeout(invalidateTrackTimer)
     })
     win.on('delete-event', () => false)
 
