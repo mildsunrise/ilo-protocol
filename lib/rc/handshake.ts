@@ -105,3 +105,5 @@ export async function negotiateConnection(cmd: boolean, socket: Duplex, sessionK
         throw Error(`unexpected response ${response}`)
     }
 }
+
+export default negotiateConnection

@@ -20,6 +20,18 @@
   },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": "./dist/index.js",
+    "./rest": "./dist/rest.js",
+    "./rc/handshake": "./dist/rc/handshake.js",
+    "./rc/telnet": "./dist/rc/telnet.js",
+    "./rc/video": "./dist/rc/video.js",
+    "./rc/command": "./dist/rc/command.js",
+    "./vm/handshake": "./dist/vm/handshake.js",
+    "./vm/header": "./dist/vm/header.js",
+    "./vm/scsi": "./dist/vm/scsi.js",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "clean": "rm -rf dist",
     "build": "tsc",

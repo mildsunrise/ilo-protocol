@@ -725,3 +725,5 @@ export class DvcDecoder {
 }
 
 // FIXME: post_complete, image_source, console.logs
+
+export default DvcDecoder

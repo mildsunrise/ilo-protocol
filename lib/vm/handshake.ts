@@ -64,3 +64,5 @@ export async function negotiateConnection(socket: Duplex, sessionKey: Uint8Array
         throw Error(`unexpected response ${response}`)
     }
 }
+
+export default negotiateConnection

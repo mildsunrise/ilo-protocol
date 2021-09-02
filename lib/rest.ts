@@ -204,3 +204,5 @@ export class RestAPIClient {
         }
     }
 }
+
+export default RestAPIClient

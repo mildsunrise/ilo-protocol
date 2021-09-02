@@ -302,3 +302,5 @@ export class VirtualDevice {
     protected notifyMediaEject() {}
     protected notifyMediaRemoval(prevented: boolean) {}
 }
+
+export default VirtualDevice

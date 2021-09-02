@@ -120,3 +120,5 @@ cipherImpls[DvcEncryption.RC4] = (key) => {
 }
 cipherImpls[DvcEncryption.AES128] = cryptoImpl('aes-128-ofb', 16, 16)
 cipherImpls[DvcEncryption.AES256] = cryptoImpl('aes-256-ofb', 32, 16)
+
+export default Telnet
