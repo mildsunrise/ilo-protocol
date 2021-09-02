@@ -1,8 +1,8 @@
 
 import { writeFile } from 'fs/promises'
 
-import { DvcEncryption, Telnet } from './lib/rc/telnet'
-import { DvcDecoder, MessageChannel } from './lib/rc/video'
+import { DvcEncryption, Telnet } from '../lib/rc/telnet'
+import { DvcDecoder, MessageChannel } from '../lib/rc/video'
 
 /**
  * Decodes a DVC stream on stdin, feeding it to Telnet + DvcDecoder.
