@@ -1,8 +1,13 @@
 # ilo-protocol
 
-This is a Node.js module to interact with iLO (Integrated Lights-Out)
-modules in HPE servers. iLO 4 v2.55 (and possibly other versions) are
-supported.
+Node.js module to interact with iLO (Integrated Lights-Out) modules in HPE
+servers. iLO 4 v2.55 (and possibly other versions) are supported.
+
+~~~ bash
+npm install ilo-protocol
+~~~
+
+**[💡 Examples](#examples)** &nbsp;•&nbsp; **[📚 API reference](https://ilo-protocol.alba.sh/docs/modules.html)**
 
 The focus is on implementing the **remote console protocol**, which
 allows you to manage the server as if you were sitting at the KVM.
@@ -91,18 +96,18 @@ requests.
 
 The modules are structured as follows (internal APIs omitted):
 
- - `rest`: allows calling some endpoints of the REST API
+ - [**`rest`**: partial client for the REST API](https://ilo-protocol.alba.sh/docs/modules/rest.html)
 
- - `rc/`: implements the remote console session
-   - `rc/handshake`: initial handshake (authentication, busy negotiation)
-   - `rc/telnet`: outer layer that processes client & server data, mostly encryption.
-   - `rc/video`: decodes server data from `telnet`
-   - `rc/command`: formats commands sent to the server, both in the handshake and afterwards (through `telnet`)
+ - **`rc/`**: implements the remote console session
+   - [**`rc/handshake`**: initial handshake](https://ilo-protocol.alba.sh/docs/modules/rc_handshake.html) (authentication, busy negotiation)
+   - [**`rc/telnet`**: outer layer](https://ilo-protocol.alba.sh/docs/modules/rc_telnet.html) that kicks in after the handshake (processes client & server data, mostly encryption)
+   - [**`rc/video`**: decodes the video stream from `telnet`](https://ilo-protocol.alba.sh/docs/modules/rc_video.html)
+   - [**`rc/command`**: formats commands sent to the server](https://ilo-protocol.alba.sh/docs/modules/rrc_command.html), both in the handshake and afterwards (through `telnet`)
 
- - `vm/`: implements the virtual media sessions
-   - `vm/handshake`: initial handshake
-   - `vm/scsi`: protocol implementation, simulates SCSI device
-     behavior (for now, only CDROM is supported)
+ - **`vm/`**: implements the virtual media sessions
+   - [**`vm/handshake`**: initial handshake](https://ilo-protocol.alba.sh/docs/modules/vm_handshake.html)
+   - [**`vm/scsi`**: protocol implementation](https://ilo-protocol.alba.sh/docs/modules/vm_scsi.html),
+     simulates SCSI device behavior (for now, only CDROM is supported)
 
 
 ## Examples
