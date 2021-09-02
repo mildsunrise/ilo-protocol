@@ -130,3 +130,13 @@ ancient Linux installs.
 `package.json` already installs that branch from my repo, but you
 need to do `npm explore node-gtk -- npm run build:full` after
 `npm install` to make sure it picks up the changes.
+
+### [`vm_cdrom.ts`](./examples/vm_cdrom.ts)
+
+Simple program that mounts the supplied file as a CDROM device.  
+To try it out:
+
+~~~ bash
+npm install
+$(npm bin)/ts-node examples/vm_cdrom.ts <arguments>
+~~~
