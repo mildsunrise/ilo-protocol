@@ -1,6 +1,6 @@
-import { Duplex, Readable } from 'stream'
-import { once } from 'events'
+import { Duplex } from 'stream'
 
+import { readNext } from '../utils'
 import { Features, RemoteConsoleInfo } from '../rest'
 import { formatCommand } from '../rc/command'
 
@@ -15,15 +15,6 @@ const targetNotDevice_flag = 0x8000
 
 const OK_RESPONSE = 0x0020
 const AUTHFAIL_RESPONSE = 0x0022
-
-async function read(s: Readable, n: number): Promise<Buffer> {
-    if (!s.readable)
-        throw Error('not readable')
-    while (s.readableLength < n)
-        await once(s, 'readable')
-    return s.read(n) // FIXME: it could return multiple chunks
-    // FIXME: implement this correctly
-}
 
 /**
  * Negotiates a virtual media connection.
@@ -64,10 +55,10 @@ export async function negotiateConnection(socket: Duplex, sessionKey: Uint8Array
     socket.write(formatCommand(command, sessionKeyHex))
 
     // process response
-    const response = (await read(socket, 2)).readUInt16LE()
+    const response = (await readNext(socket, 2)).readUInt16LE()
     if (response === OK_RESPONSE) {
         // authenticated, we're good to go. (start telnet receiver now)
-        const vBuf = await read(socket, 2)
+        const vBuf = await readNext(socket, 2)
         return [vBuf[1], vBuf[0]]
     } else {
         throw Error(`unexpected response ${response}`)

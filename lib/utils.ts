@@ -1,3 +1,6 @@
+import { Readable } from 'stream'
+
+
 export const getU8ReversedLUT = (): number[] => [...Array(256)].map((_, x) => {
     let result = 0
     for (let bit = 0; bit < 8; bit++, x >>= 1)
@@ -165,3 +168,46 @@ export function rc4(key: Buffer) {
         return sBox[(sBox[i] + sBox[j]) & 0xFF]
     }
 }
+
+
+/** Returns promise for the next N-byte chunk of a readable (paused) stream. */
+export const readNext = (stream: Readable, n: number) => new Promise<Buffer>((resolve, reject) => {
+    if (!stream.readable)
+        throw Error('stream not readable')
+    const chunks: Buffer[] = []
+    function readableListener() {
+        if (stream.readableLength >= n) {
+            chunks.push(stream.read(n))
+            detachListeners()
+            return resolve(Buffer.concat(chunks))
+        }
+        let chunk: Buffer
+        while ((chunk = stream.read()) !== null) {
+            chunks.push(chunk)
+            n -= chunk.length
+        }
+    }
+    function endListener() {
+        detachListeners()
+        reject(new Error('received unexpected EOF'))
+    }
+    function errorListener(e: any) {
+        detachListeners()
+        reject(e)
+    }
+    function closeListener() {
+        detachListeners()
+        reject(new Error('stream closed'))
+    }
+    stream.addListener('readable', readableListener)
+    stream.addListener('end', endListener)
+    stream.addListener('close', closeListener)
+    stream.addListener('error', errorListener)
+    function detachListeners() {
+        stream.removeListener('readable', readableListener)
+        stream.removeListener('end', endListener)
+        stream.removeListener('close', closeListener)
+        stream.removeListener('error', errorListener)
+    }
+    readableListener()
+})

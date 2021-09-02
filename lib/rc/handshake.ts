@@ -5,9 +5,9 @@
  */
 /** */
 
-import { Duplex, Readable } from 'stream'
-import { once } from 'events'
+import { Duplex } from 'stream'
 
+import { readNext } from '../utils'
 import { Features, RemoteConsoleInfo } from '../rest'
 import { Command, formatCommand } from './command'
 
@@ -21,14 +21,6 @@ export enum ServerStatus {
     NO_LICENSE         = 87, // 'W'
     NO_FREE_SESSIONS   = 88, // 'X'
     BUSY_2             = 89, // 'Y'
-}
-
-async function read(s: Readable): Promise<number> {
-    if (!s.readable)
-        throw Error('not readable')
-    if (s.readableLength <= 0)
-        await once(s, 'readable')
-    return s.read(1)[0]
 }
 
 /**
@@ -60,7 +52,7 @@ export async function negotiateConnection(cmd: boolean, socket: Duplex, sessionK
     // FIXME: timeout when waiting for responses
 
     // wait for hello
-    const helloByte = await read(socket)
+    const helloByte = (await readNext(socket, 1))[0]
     if (helloByte !== ServerStatus.HELLO)
         throw Error('did not receive hello from server')
 
@@ -76,7 +68,7 @@ export async function negotiateConnection(cmd: boolean, socket: Duplex, sessionK
     socket.write(formatCommand(command, sessionKeyHex))
 
     // process response
-    const response = await read(socket)
+    const response = (await readNext(socket, 1))[0]
     if (response === ServerStatus.OK) {
         // authenticated, we're good to go. (start telnet receiver now)
         return
@@ -88,7 +80,7 @@ export async function negotiateConnection(cmd: boolean, socket: Duplex, sessionK
         const negotiateResult = negotiateBusy && await negotiateBusy()
         if (negotiateResult === 'seize') {
             socket.write(formatCommand(Command.SEIZE_CONNECTION))
-            const seizeResponse = await read(socket)
+            const seizeResponse = (await readNext(socket, 1))[0]
             if (seizeResponse === ServerStatus.OK) {
                 return true
             } else if (seizeResponse === ServerStatus.ACCESS_DENIED) {
