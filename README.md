@@ -111,7 +111,7 @@ The `examples` directory contains many examples of using the library.
 
 ### [`app.ts`](./examples/app.ts)
 
-<!-- FIXME: screenshot -->
+![Application screenshot](./tools/app_screenshot.jpg)
 
 It's a completely functional GTK-based client, and it shows usage of (almost)
 all protocol features.  
