@@ -1,6 +1,6 @@
 {
   "name": "ilo-protocol",
-  "version": "1.0.0",
+  "version": "1.0.0-beta",
   "description": "Implementation of HPE's iLO 4 remote console protocol",
   "author": "Alba Mendez <me@alba.sh>",
   "license": "AGPL-3.0-or-later",
