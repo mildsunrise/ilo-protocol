@@ -36,7 +36,7 @@ export enum Command {
     MOUSE = 0x0002,
 
     /** restart the video stream. no arguments */
-    REFRESH_SCREEN = 0x0005,
+    REQUEST_RESYNC = 0x0005,
     /** no arguments */
     ACK = 0x000c,
 }

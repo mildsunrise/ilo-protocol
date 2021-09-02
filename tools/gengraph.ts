@@ -21,7 +21,7 @@ const subgraphs: { id: string, states: State[] }[] = [
     { id: 'string', states: [ State.STRING_START, State.STRING_READ ] },
 ]
 
-const blackList = new Set([ State.FATAL_ERROR, State.DISCARD_QUEUE ])
+const blackList = new Set([ State.FATAL_ERROR, State.RESYNCING ])
 const ghostTargets = [ State.BEGIN, State.PIXEL_BEGIN ]
 const ghostTargetsExcluded = new Set([ State.RESET ].concat(ghostTargets))
 

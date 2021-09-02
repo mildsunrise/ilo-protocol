@@ -75,7 +75,7 @@ async function main() {
         }
 
         protected receiveDvc(n: number) {
-            return decoder.process(n)
+            decoder.process(n)
         }
     }(encKey)
 
@@ -111,9 +111,9 @@ async function main() {
             console.log('Ping')
             telnet.sendDvc(formatCommand(Command.ACK))
         }
-        protected requestScreenRefresh() {
-            telnet.sendDvc(formatCommand(Command.REFRESH_SCREEN))
+        protected requestResync() {
             console.log('Requesting resync...')
+            telnet.sendDvc(formatCommand(Command.REQUEST_RESYNC))
         }
         protected exitDvc() {
             console.log('Exiting DVC mode...')

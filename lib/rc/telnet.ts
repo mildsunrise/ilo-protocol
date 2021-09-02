@@ -26,7 +26,7 @@ export class Telnet {
         if (key.length !== 16)
             throw Error('invalid key length...')
         this.key = key
-        this.setEncryption(DvcEncryption.NONE)
+        this.setDvcWithEncryption(DvcEncryption.NONE)
     }
 
     public receive(b: number) {
@@ -58,7 +58,7 @@ export class Telnet {
         this.send(data)
     }
 
-    public setEncryption(enc: DvcEncryption) {
+    public setDvcWithEncryption(enc: DvcEncryption) {
         this.initializeCipherInstances(enc)
         this.cipher = enc
         this.state = { dvcMode: true, encryption: enc !== DvcEncryption.NONE }
@@ -81,9 +81,7 @@ export class Telnet {
 
     // Methods for subclasses to implement:
 
-    /** returns false to end DVC mode */
-    protected receiveDvc(b: number): boolean { return true }
-
+    protected receiveDvc(b: number) {}
     protected send(data: Buffer) {}
 }
 

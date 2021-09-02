@@ -75,7 +75,7 @@ export enum State {
     ADVANCE_BLOCKS2 = 28,
     ADVANCE_BLOCKS_PLUS2 = 29,
     ADVANCE_BLOCKS_N = 30,
-    GO_TO_PIXCODE_OR_BEGIN_RGB = 31,
+    PIXCODE_OR_RGB = 31,
     PIXCODE_4B = 32,
     PIXEL_FILL_1 = 33,
     ADVANCE_BLOCKS_1 = 34,
@@ -86,7 +86,7 @@ export enum State {
     SET_HEIGHT = 40,
     SET_GREEN = 41,
     SET_BLUE = 42,
-    DISCARD_QUEUE = 43,
+    RESYNCING = 43,
     STRING_START = 44,
     STRING_READ = 45,
     COMMAND_MORE = 46,
@@ -106,8 +106,8 @@ export const STATE_DATA: { [state: number]: StateData } = {
 
     // Pixel loop ( PIXEL_BEGIN -> {pixcode | rgb} -> AFTER_COLOR -> [fill] -> PIXEL_BEGIN )
 
-    [State.PIXEL_BEGIN]: { bits: 1, next: State.PIXCODE_1, next0: State.GO_TO_PIXCODE_OR_BEGIN_RGB }, // + BEGIN
-    [State.GO_TO_PIXCODE_OR_BEGIN_RGB]: { bits: 1, next: State.BEGIN_RGB },
+    [State.PIXEL_BEGIN]: { bits: 1, next: State.PIXCODE_1, next0: State.PIXCODE_OR_RGB }, // + BEGIN
+    [State.PIXCODE_OR_RGB]: { bits: 1, next: State.BEGIN_RGB }, // + PIXCODE_* except PIXCODE_1
 
     [State.PIXCODE_1]:  { bits: 0, next: State.AFTER_COLOR },
     [State.PIXCODE_0]:  { bits: 0, next: State.AFTER_COLOR },
@@ -169,7 +169,7 @@ export const STATE_DATA: { [state: number]: StateData } = {
     // Other states
 
     [State.FATAL_ERROR]: { bits: 1, next: State.FATAL_ERROR },
-    [State.DISCARD_QUEUE]: { bits: 1, next: State.RESET, next0: State.DISCARD_QUEUE },
+    [State.RESYNCING]: { bits: 1, next: State.RESET, next0: State.RESYNCING },
     [State.N_37]: { bits: 0, next: State.N_37 }, // FIXME
 }
 
@@ -184,7 +184,6 @@ export const STATE_DATA: { [state: number]: StateData } = {
  */
 export class DvcDecoder {
     debug = false
-    readonly blockWidth = 16
 
     byteCount!: number // bytes processed by consumeBits
     readonly bitQueue = new BitQueue()
@@ -207,6 +206,7 @@ export class DvcDecoder {
     cache = new LRUCache()
 
     block = new Uint32Array(16 * 16)
+    blockWidth = 16
     blockHeight!: number
     dvc_pixel_count!: number
 
@@ -252,11 +252,11 @@ export class DvcDecoder {
         this.byteCount++
         this.bitQueue.push(byte)
         
-        // If we've seen more than 30 consecutive zeros at any point, go to RESET state
+        // If we've seen more than 30 consecutive zeros at any point, go into RESYNCING state
         this.dvc_zero_count += dvc_right[byte]
         if (this.dvc_zero_count > 30) {
             // if (!debug_msgs || this.dvc_decoder_state != 38 || fatal_count >= 40 || fatal_count > 0) ;
-            this.dvc_decoder_state = this.dvc_next_state = State.DISCARD_QUEUE
+            this.dvc_decoder_state = this.dvc_next_state = State.RESYNCING
         }
         if (byte != 0)
             this.dvc_zero_count = dvc_left[byte]
@@ -456,17 +456,17 @@ export class DvcDecoder {
             //     debug_show_block = 1;
             // }
             if (this.fatal_count === 40) {
-                this.requestScreenRefresh()
+                this.requestResync()
             }
             if (this.fatal_count === 11680) {
-                this.requestScreenRefresh()
+                this.requestResync()
             }
             this.fatal_count++
             if (this.fatal_count === 120000) {
-                this.requestScreenRefresh()
+                this.requestResync()
             }
             if (this.fatal_count === 12000000) {
-                this.requestScreenRefresh()
+                this.requestResync()
                 this.fatal_count = 41
             }
             break
@@ -507,7 +507,7 @@ export class DvcDecoder {
             }
             break
 
-        case State.DISCARD_QUEUE:
+        case State.RESYNCING:
             if (dvc_code !== 0)
                 this.initQueue()
             break
@@ -527,7 +527,7 @@ export class DvcDecoder {
         if (this.dvc_decoder_state === this.dvc_next_state &&
             this.dvc_decoder_state !== State.STRING_READ &&
             this.dvc_decoder_state !== State.FATAL_ERROR &&
-            this.dvc_decoder_state !== State.DISCARD_QUEUE) {
+            this.dvc_decoder_state !== State.RESYNCING) {
             console.log(`Machine hung in state ${this.dvc_decoder_state}`)
             return true
         }
@@ -714,7 +714,7 @@ export class DvcDecoder {
     protected noVideo() {}
     protected seize() {}
     protected ping() {} // send ACK
-    protected requestScreenRefresh() {} // request server to refresh screen
+    protected requestResync() {} // request server to restart stream
     protected exitDvc() {} // tell Telnet to exit DVC mode
 
     protected setScreenDimensions(x: number, y: number) {}
