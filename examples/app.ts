@@ -1,11 +1,11 @@
 import { connect } from 'net'
 import { once } from 'events'
 
-import { RestAPIClient } from './lib/rest'
-import { negotiateConnection } from './lib/rc/handshake'
-import { DvcEncryption, Telnet } from './lib/rc/telnet'
-import { DvcDecoder, MessageChannel } from './lib/rc/video'
-import { Command, formatCommand, formatKeyboardCommand, formatMouseCommand, powerStatusCommands } from './lib/rc/command'
+import { RestAPIClient } from '../dist/rest'
+import { negotiateConnection } from '../dist/rc/handshake'
+import { DvcEncryption, Telnet } from '../dist/rc/telnet'
+import { DvcDecoder, MessageChannel } from '../dist/rc/video'
+import { Command, formatCommand, formatKeyboardCommand, formatMouseCommand, powerStatusCommands } from '../dist/rc/command'
 
 const gi = require('node-gtk')
 const Gtk = gi.require('Gtk', '3.0')
