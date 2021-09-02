@@ -1,3 +1,4 @@
+import { type as osType } from 'os'
 import { connect } from 'net'
 import { once } from 'events'
 
@@ -11,6 +12,19 @@ const gi = require('node-gtk')
 const Gtk = gi.require('Gtk', '3.0')
 const Gdk = gi.require('Gdk', '3.0')
 const Cairo = gi.require('cairo', '2.0')
+
+const args = process.argv.slice(2)
+if (args.length !== 2) {
+    console.error(`Usage: ${process.argv[1]} <iLO hostname[:port]> <username:password>`)
+    console.error('\nOpens a graphical GTK+ remote console client.')
+    console.error('\n(Assumes iLO is serving HTTPS)')
+    process.exit(2)
+}
+const [ address, creds ] = args
+const [ username, password ] = /^(.+?):(.+)$/.exec(creds).slice(1)
+
+if (osType() !== 'Linux')
+    console.warn('CAUTION: Keyboard input is implemented for Linux, and won\'t work correctly on other platforms.')
 
 gi.startLoop()
 Gtk.init()
@@ -30,8 +44,6 @@ function mapGdkKeycodeToHid(n: number) {
 }
 
 async function main() {
-    const { address, username, password } = require('./config.json')
-
     const client = new RestAPIClient(`https://${address}`)
     await client.loginSession(username, password)
 

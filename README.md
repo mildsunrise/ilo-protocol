@@ -119,7 +119,7 @@ To try it out:
 
 ~~~ bash
 npm install
-npm start
+$(npm bin)/ts-node examples/app.ts <arguments>
 ~~~
 
 **Note:** It's currently hardcoded to assume Linux (evdev) keycodes,
