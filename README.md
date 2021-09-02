@@ -125,3 +125,8 @@ npm start
 **Note:** It's currently hardcoded to assume Linux (evdev) keycodes,
 so keyboard input probably won't work correctly on other OSes, or
 ancient Linux installs.
+
+**Note:** This example depends on [romgrk/node-gtk#252](https://github.com/romgrk/node-gtk/pull/252),
+`package.json` already installs that branch from my repo, but you
+need to do `npm explore node-gtk -- npm run build:full` after
+`npm install` to make sure it picks up the changes.

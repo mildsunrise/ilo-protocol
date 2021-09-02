@@ -14,6 +14,6 @@
   },
   "dependencies": {
     "got": "^11.8.1",
-    "node-gtk": "^0.5.1"
+    "node-gtk": "mildsunrise/node-gtk#cairo-create-for-data"
   }
 }
