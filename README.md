@@ -83,6 +83,17 @@ are used in OFB mode.
 TODO: document protocol
 
 
+## WebSocket support
+
+Newer versions of the iLO (FIXME: document which) come with an **HTML5 client** rather than a Java applet.  
+This client uses exactly the same protocols, but over **WebSockets** rather than TCP connections.
+
+That's very nice because if the webserver uses HTTPS (which it does by default) those WebSockets will also go over TLS which means we finally got decent security!
+The iLO doesn't use the in-protocol encryption mentioned above when the remote console session is over WebSockets.
+
+TODO: document websocket endpoints, add support in API, make examples prefer WS when possible.
+
+
 ## Usage
 
 This library only has some dependency on Node.js APIs (streams and crypto)
@@ -102,7 +113,7 @@ The modules are structured as follows (internal APIs omitted):
    - [**`rc/handshake`**: initial handshake](https://ilo-protocol.alba.sh/docs/modules/rc_handshake.html) (authentication, busy negotiation)
    - [**`rc/telnet`**: outer layer](https://ilo-protocol.alba.sh/docs/modules/rc_telnet.html) that kicks in after the handshake (processes client & server data, mostly encryption)
    - [**`rc/video`**: decodes the video stream from `telnet`](https://ilo-protocol.alba.sh/docs/modules/rc_video.html)
-   - [**`rc/command`**: formats commands sent to the server](https://ilo-protocol.alba.sh/docs/modules/rrc_command.html), both in the handshake and afterwards (through `telnet`)
+   - [**`rc/command`**: formats commands sent to the server](https://ilo-protocol.alba.sh/docs/modules/rc_command.html), both in the handshake and afterwards (through `telnet`)
 
  - **`vm/`**: implements the virtual media sessions
    - [**`vm/handshake`**: initial handshake](https://ilo-protocol.alba.sh/docs/modules/vm_handshake.html)
