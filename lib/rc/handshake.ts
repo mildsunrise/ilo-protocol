@@ -2,8 +2,8 @@
  * This module handles the initial handshake (i.e. authentication
  * and session allocation) on the remote console port. After the
  * handshake completes, `telnet` and `video` would be used.
+ * @module
  */
-/** */
 
 import { Duplex } from 'stream'
 

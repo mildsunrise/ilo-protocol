@@ -3,5 +3,7 @@
     "excludePrivate": true,
     "excludeProtected": true,
     "excludeExternals": true,
-    "listInvalidSymbolLinks": true
+    "validation": {
+        "invalidLink": true
+    }
 }
